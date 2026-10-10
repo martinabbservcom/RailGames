@@ -596,8 +596,15 @@
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = INK;
     ctx.stroke();
-    box(ctx, 912, 546, 52, 48, 24, '#3a3d63');
-    circle(ctx, 988, 558, 6, '#fff7a8', 1.5);
+    box(ctx, 914, 548, 44, 34, 3, '#cfeaff', 2);
+    ctx.beginPath();
+    ctx.moveTo(936, 548);
+    ctx.lineTo(936, 582);
+    ctx.moveTo(914, 565);
+    ctx.lineTo(958, 565);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
     label(ctx, 'ENGINE SHED', 1010, 575, 10, '#fff5d8', 'center', 700);
 
     // Signal box near the lead.
