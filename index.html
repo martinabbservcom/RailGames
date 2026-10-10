@@ -3,103 +3,99 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101820">
-  <title>Kent Signaller — 1980</title>
+  <title>Pebblebrook Yard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#" aria-label="Kent Signaller home">
-      <span class="brand-mark" aria-hidden="true">K</span>
-      <span><strong>KENT SIGNALLER</strong><small>BRITISH RAIL · SOUTHERN REGION</small></span>
-    </a>
-    <div class="scenario-tag"><span class="live-dot"></span> TRAINING SCENARIO <span class="tag-divider">/</span> WEST KENT · 1980</div>
-    <div class="clock-panel">
-      <div class="clock-copy"><span>SIMULATION TIME</span><strong id="clock">07:00:00</strong></div>
-      <button class="transport-button" id="pause-button" type="button" aria-label="Pause simulation">Ⅱ</button>
-      <div class="speed-controls" aria-label="Simulation speed">
-        <button class="speed-button selected" type="button" data-speed="1">1×</button>
-        <button class="speed-button" type="button" data-speed="2">2×</button>
-        <button class="speed-button" type="button" data-speed="4">4×</button>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-badge" aria-hidden="true">P</span>
+        <span><strong>Pebblebrook Yard</strong><small id="level-name">Shunting game</small></span>
+      </div>
+      <div class="clock" aria-label="Time"><span id="clock">08:00</span></div>
+      <div class="stars-total" title="Stars earned this day"><span class="star-icon">★</span> <span id="star-count">0</span> / <span id="star-max">0</span></div>
+      <div class="controls">
+        <button class="round" id="pause" type="button" aria-label="Pause">Ⅱ</button>
+        <div class="speed" role="group" aria-label="Game speed">
+          <button type="button" data-speed="1" class="selected">1×</button>
+          <button type="button" data-speed="2">2×</button>
+          <button type="button" data-speed="4">4×</button>
+          <button type="button" data-speed="8">8×</button>
+        </div>
+        <button class="round on" id="music" type="button" aria-label="Music on" title="Music">♫</button>
+        <button class="round on" id="sound" type="button" aria-label="Sound effects on" title="Sound effects">♪</button>
+        <button class="round" id="help-button" type="button" aria-label="How to play">?</button>
+        <button class="pill" id="menu-button" type="button">Menu</button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="yard" aria-label="The shunting yard. Click a vehicle to pick it up, then click a track to put it there."></canvas>
+        <div id="hint" class="hint"></div>
+        <div id="toasts" class="toasts" aria-live="polite"></div>
+      </div>
+      <aside class="board">
+        <section>
+          <h2><span class="board-dot"></span>Departures</h2>
+          <p class="board-note">Build each train like the picture, engine at the front (right). The half-and-half engine means any engine will do.</p>
+          <div id="departures" class="cards"></div>
+        </section>
+        <section>
+          <h2><span class="board-dot arrive"></span>Arriving</h2>
+          <div id="arrivals" class="cards"></div>
+        </section>
+      </aside>
+    </main>
+
+    <div id="menu" class="overlay">
+      <div class="sheet menu-sheet">
+        <div class="logo-train" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <h1>Pebblebrook Yard</h1>
+        <p class="lead">Shunt wagons and coaches into the right trains, then send them off from the station!</p>
+        <div id="levels" class="levels"></div>
+        <button class="big secondary" id="howto" type="button">How to play</button>
+        <p class="credit">Created by Abbserv</p>
       </div>
     </div>
-  </header>
 
-  <main class="workspace">
-    <aside class="sidebar">
-      <section class="intro">
-        <div class="eyebrow">THE WEST KENT MAIN LINES</div>
-        <h1>Keep Kent<br>moving.</h1>
-        <p>Work the signals, watch your blocks, and get every service to its destination.</p>
-        <p class="credit">Created by Abbserv</p>
-      </section>
+    <div id="help" class="overlay hidden">
+      <div class="sheet">
+        <h2>How to play</h2>
+        <ol class="steps">
+          <li><b>Trains arrive</b> at the Reception road. Their engines go off to the shed by themselves.</li>
+          <li><b>Click a vehicle</b> to pick it up. Pip, the little engine, takes it <i>and everything between it and the yard entrance</i> (the left).</li>
+          <li><b>Click a track</b> to put them down. Green tracks have room.</li>
+          <li><b>Check the Departures board.</b> Build each train with an engine at the front (the right end) and the vehicles in the right order. <b>Any engine will do</b>, steam or diesel.</li>
+          <li><b>Park it at its platform</b> before the clock reaches the leaving time. Passengers will hop on, and off it goes!</li>
+        </ol>
+        <p class="tip">Tip: to turn a train round, move vehicles one at a time to another track.</p>
+        <button class="big" id="help-close" type="button">Got it!</button>
+      </div>
+    </div>
 
-      <section class="panel instructions">
-        <div class="panel-heading"><span class="step-number">01</span><h2>Work the railway</h2></div>
-        <ul>
-          <li><span class="instruction-icon signal-icon" aria-hidden="true"></span><span><b>Click a signal</b> to clear the whole route of the train using it.</span></li>
-          <li><span class="instruction-icon stop-icon" aria-hidden="true"></span><span>Click it again to put it back to <b>danger</b>.</span></li>
-          <li><span class="instruction-icon train-icon" aria-hidden="true"></span><span>Trains stop at red signals. Occupied blocks stay locked.</span></li>
-          <li><span class="instruction-icon station-icon" aria-hidden="true"></span><span>Select a station or train for its details.</span></li>
-        </ul>
-        <p class="mouse-hint">Scroll to zoom · drag the map to pan</p>
-      </section>
-
-      <section class="panel service-panel">
-        <div class="panel-heading section-heading">
-          <div><div class="eyebrow">LIVE TRAFFIC</div><h2>Train register</h2></div>
-          <span class="count-badge" id="train-count">0</span>
+    <div id="results" class="overlay hidden">
+      <div class="sheet results-sheet">
+        <h2 id="results-title">All done!</h2>
+        <div id="results-stars" class="result-stars"></div>
+        <p id="results-text" class="lead"></p>
+        <div class="row">
+          <button class="big secondary" id="again" type="button">Play again</button>
+          <button class="big" id="next" type="button">Next day</button>
         </div>
-        <div class="register-list" id="train-list" aria-live="polite"></div>
-      </section>
+        <button class="link" id="results-menu" type="button">Back to menu</button>
+      </div>
+    </div>
+  </div>
 
-      <section class="panel detail-panel" id="detail-panel">
-        <div class="eyebrow" id="detail-kicker">SIGNALLER'S NOTES</div>
-        <h2 id="detail-title">Select a location</h2>
-        <p id="detail-copy">Click any station on the diagram to inspect the line and its facilities.</p>
-      </section>
-      <footer class="sidebar-footer"><span class="status-lamp"></span> BLOCK LOCKING ACTIVE <span>·</span> DEMO BUILD 01</footer>
-    </aside>
-
-    <section class="map-area" aria-label="Railway control diagram">
-      <div class="map-toolbar">
-        <div class="map-heading"><span class="map-symbol" aria-hidden="true">⌁</span><span><strong>KENT</strong><small>SCHEMATIC CONTROL DIAGRAM</small></span></div>
-        <div class="legend">
-          <span><i class="legend-track"></i> Track</span>
-          <span><i class="legend-signal"></i> Stop</span>
-          <span><i class="legend-signal clear"></i> Clear</span>
-          <span><i class="legend-train"></i> Train</span>
-          <span><i class="legend-train waiting"></i> At signal</span>
-          <span><i class="legend-train held"></i> Held</span>
-        </div>
-      </div>
-      <div class="map-scroll" id="map-scroll">
-        <svg id="rail-map" viewBox="0 0 1200 740" role="img" aria-label="Schematic railway map from London to Tonbridge, Maidstone and the Medway towns">
-          <defs>
-            <pattern id="yard-hatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-              <line x1="0" y1="0" x2="0" y2="8" stroke="#30404b" stroke-width="2"></line>
-            </pattern>
-          </defs>
-          <g id="map-background"></g>
-          <g id="track-layer"></g>
-          <g id="route-highlight-layer"></g>
-          <g id="signal-layer"></g>
-          <g id="station-layer"></g>
-          <g id="train-layer"></g>
-        </svg>
-      </div>
-      <div class="train-tooltip" id="train-tooltip" role="tooltip" hidden></div>
-      <div class="map-footer">
-        <span><b>ROUTE:</b> LONDON · SEVENOAKS · TONBRIDGE · MAIDSTONE · MEDWAY TOWNS</span>
-        <span class="schematic-warning">1980-INSPIRED SCHEMATIC · SAMPLE TIMETABLE · NOT ARCHIVAL</span>
-      </div>
-    </section>
-  </main>
-  <script src="data.js"></script>
-  <script src="sim.js"></script>
-  <script src="game.js"></script>
+  <script src="levels.js"></script>
+  <script src="yard.js"></script>
+  <script src="sound.js"></script>
+  <script src="render.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
