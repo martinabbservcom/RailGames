@@ -1,4 +1,4 @@
-# Pebblebrook Yard
+# Sibsey Station
 
 A friendly 2D shunting game for all ages. Trains arrive at a small fictional yard, and you sort their wagons and coaches into new trains that match the departures board. Park each finished train at its platform before the clock reaches its leaving time, wait for the passengers to board, and off it goes!
 

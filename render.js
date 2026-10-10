@@ -593,8 +593,8 @@
       ctx.strokeStyle = INK;
       ctx.stroke();
     }
-    box(ctx, 585, 56, 130, 30, 8, '#fff7e0', 2.5);
-    label(ctx, 'PEBBLEBROOK', 650, 71, 17, INK, 'center', 700);
+    box(ctx, 570, 56, 160, 30, 8, '#fff7e0', 2.5);
+    label(ctx, 'SIBSEY STATION', 650, 71, 16, INK, 'center', 700);
     // Arched station door.
     ctx.beginPath();
     ctx.moveTo(778, 116);

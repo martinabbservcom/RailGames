@@ -30,7 +30,7 @@
     {
       id: 1,
       title: 'Sunny Morning',
-      blurb: 'Your first day at Pebblebrook. Two little trains to build.',
+      blurb: 'Your first day at Sibsey Station. Two little trains to build.',
       start: 8 * 60,
       tracks: ['P1', 'S1', 'S2', 'SHED', 'SHED2'],
       shed: ['steam'],
