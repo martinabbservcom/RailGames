@@ -563,11 +563,11 @@
     }
 
     // Island platform.
-    box(ctx, 380, 168, 700, 50, 8, '#e8dfc6');
+    box(ctx, 452, 168, 628, 50, 8, '#e8dfc6');
     ctx.fillStyle = '#ffd93d';
-    ctx.fillRect(386, 170, 688, 3);
-    ctx.fillRect(386, 213, 688, 3);
-    for (const x of [470, 640, 810, 980]) {
+    ctx.fillRect(458, 170, 616, 3);
+    ctx.fillRect(458, 213, 616, 3);
+    for (const x of [500, 660, 820, 980]) {
       ctx.fillStyle = INK;
       ctx.fillRect(x - 1.5, 168, 3, 44);
       circle(ctx, x, 168, 5, '#fff7a8', 1.8);
@@ -579,8 +579,8 @@
       ctx.fillRect(x + 10, 196, 3, 6);
     }
     for (const [n, y] of [[1, 183], [2, 203]]) {
-      circle(ctx, 430, y, 8, '#4d96ff', 1.8);
-      label(ctx, String(n), 430, y + 0.5, 11, '#fff', 'center', 700);
+      circle(ctx, 478, y, 8, '#4d96ff', 1.8);
+      label(ctx, String(n), 478, y + 0.5, 11, '#fff', 'center', 700);
     }
 
     // Engine shed.
@@ -750,21 +750,23 @@
     }
 
     function lockedOverlay(track) {
+      // Keep the closed-track marking clear of the engine shed building.
+      const xEnd = track.y > 470 && track.y < 600 ? Math.min(track.xEnd, 876) : track.xEnd;
       ctx.save();
-      path(ctx, track.straightX - 4, track.y - 16, track.xEnd - track.straightX + 14, 32, 8);
+      path(ctx, track.straightX - 4, track.y - 16, xEnd - track.straightX + 14, 32, 8);
       ctx.clip();
       ctx.fillStyle = 'rgba(70,80,100,.45)';
-      ctx.fillRect(track.straightX - 4, track.y - 16, track.xEnd - track.straightX + 14, 32);
+      ctx.fillRect(track.straightX - 4, track.y - 16, xEnd - track.straightX + 14, 32);
       ctx.strokeStyle = 'rgba(255,214,64,.8)';
       ctx.lineWidth = 6;
-      for (let x = track.straightX - 40; x < track.xEnd + 20; x += 26) {
+      for (let x = track.straightX - 40; x < xEnd + 20; x += 26) {
         ctx.beginPath();
         ctx.moveTo(x, track.y + 18);
         ctx.lineTo(x + 30, track.y - 18);
         ctx.stroke();
       }
       ctx.restore();
-      for (const x of [track.straightX + 24, track.xEnd - 24]) {
+      for (const x of [track.straightX + 24, xEnd - 24]) {
         ctx.beginPath();
         ctx.moveTo(x - 7, track.y + 6);
         ctx.lineTo(x, track.y - 14);
@@ -776,7 +778,7 @@
         ctx.strokeStyle = INK;
         ctx.stroke();
       }
-      label(ctx, 'Closed today', (track.straightX + track.xEnd) / 2, track.y, 13, '#fff', 'center', 700);
+      label(ctx, 'Closed today', (track.straightX + xEnd) / 2, track.y, 13, '#fff', 'center', 700);
     }
 
     function targetGlow(track, time) {
