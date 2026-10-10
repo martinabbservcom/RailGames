@@ -118,7 +118,7 @@
     if (!renderer) return;
     const aspect = game.W / game.H;
     const w = Math.min(wrap.clientWidth - 24, (wrap.clientHeight - 24) * aspect);
-    const width = Math.max(320, Math.floor(w));
+    const width = Math.max(200, Math.floor(w));
     canvas.style.width = `${width}px`;
     canvas.style.height = `${Math.floor(width / aspect)}px`;
     renderer.resize(width);
@@ -368,6 +368,9 @@
     show('menu');
   });
   window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', () => setTimeout(fit, 150));
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(wrap);
+  document.addEventListener('gesturestart', e => e.preventDefault());
 
   // ---- Game events ---------------------------------------------------------------
   function pilotPoint() {
