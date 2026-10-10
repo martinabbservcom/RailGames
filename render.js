@@ -550,7 +550,8 @@
     for (let i = 0; i < 40; i++) {
       const x = 10 + rand() * 230;
       const y = 140 + rand() * 520;
-      if (x < leftLimit(y) - 10) {
+      // Flowers only on the grass: not on the road, the houses or under the trees.
+      if (x < leftLimit(y) - 10 && spots.every(p => Math.hypot(p[0] - x, p[1] - y) > p[2] + 6)) {
         circle(ctx, x, y, 2.2, ['#fff', '#ffd93d', '#ff8fab'][i % 3]);
       }
     }
