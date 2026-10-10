@@ -41,7 +41,11 @@ button { font: inherit; cursor: pointer; }
 
 /* Stage */
 .stage { flex: 1 1 auto; min-height: 0; display: flex; }
-.canvas-wrap { position: relative; flex: 1 1 auto; min-width: 0; display: grid; place-items: center; background: #0f2a45; }
+.canvas-wrap { position: relative; flex: 1 1 auto; min-width: 0; background: #0f2a45; }
+.scroller { position: absolute; inset: 0; display: flex; overflow: auto; -webkit-overflow-scrolling: touch; }
+.scroller #yard { margin: auto; flex: none; touch-action: pan-x pan-y; }
+.zoom-controls { position: absolute; left: 10px; bottom: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
+.zoom-controls button { width: 42px; height: 42px; border-radius: 12px; border: 3px solid var(--sun); background: var(--navy); color: #fff; font-size: 22px; line-height: 1; padding: 0; }
 #yard { display: block; border-radius: 18px; box-shadow: 0 10px 30px #0008; cursor: default; }
 .hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 80%; padding: 8px 18px; border-radius: 20px; background: #fff; border: 3px solid var(--ink); color: var(--ink); font-weight: 600; font-size: 16px; text-align: center; box-shadow: 0 4px 0 #0005; pointer-events: none; }
 .hint:empty { display: none; }
@@ -148,9 +152,9 @@ button { font: inherit; cursor: pointer; }
 }
 
 .rotate-hint { display: none; }
-@media (orientation: portrait) and (max-width: 700px) and (pointer: coarse) and (hover: none) {
-  .rotate-hint { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--sun); color: var(--navy-deep); font-size: 14px; }
+@media (orientation: portrait) and (max-width: 700px) {
+  html.is-touch .rotate-hint { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--sun); color: var(--navy-deep); font-size: 14px; }
   .rotate-hint span { flex: 1; }
   .rotate-hint button { border: 0; background: transparent; font-size: 26px; line-height: 1; color: inherit; min-width: 36px; min-height: 36px; }
-  .rotate-hint.dismissed { display: none; }
+  html.is-touch .rotate-hint.dismissed { display: none; }
 }

@@ -114,11 +114,35 @@
     last = performance.now();
   }
 
+  let zoom = 1;
+  const scroller = $('scroller');
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    document.documentElement.classList.add('is-touch');
+  }
+
+  // Zoom about a screen point, keeping the spot under it in place.
+  function setZoom(next, clientX, clientY) {
+    next = Math.max(1, Math.min(3, next));
+    if (next === zoom) return;
+    const rect = canvas.getBoundingClientRect();
+    const sr = scroller.getBoundingClientRect();
+    const px = clientX === undefined ? sr.left + sr.width / 2 : clientX;
+    const py = clientY === undefined ? sr.top + sr.height / 2 : clientY;
+    const fx = (px - rect.left) / rect.width;
+    const fy = (py - rect.top) / rect.height;
+    zoom = next;
+    fit();
+    const after = canvas.getBoundingClientRect();
+    scroller.scrollLeft += after.left + fx * after.width - px;
+    scroller.scrollTop += after.top + fy * after.height - py;
+  }
+
   function fit() {
     if (!renderer) return;
     const aspect = game.W / game.H;
     const w = Math.min(wrap.clientWidth - 24, (wrap.clientHeight - 24) * aspect);
-    const width = Math.max(200, Math.floor(w));
+    const width = Math.max(200, Math.floor(w * zoom));
     canvas.style.width = `${width}px`;
     canvas.style.height = `${Math.floor(width / aspect)}px`;
     renderer.resize(width);
@@ -228,7 +252,51 @@
     return selected ? game.validTargets(selected.track, selected.idx + 1) : [];
   }
 
+  const touches = new Map();
+  let pinch = null;
+  let tap = null;
+
   canvas.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'touch') return handlePress(event);
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size === 1) {
+      tap = { id: event.pointerId, x: event.clientX, y: event.clientY, ok: true };
+    } else {
+      tap = null;
+      if (touches.size === 2) {
+        const [a, b] = [...touches.values()];
+        pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+      }
+    }
+  });
+
+  canvas.addEventListener('pointermove', event => {
+    const t = touches.get(event.pointerId);
+    if (!t) return;
+    t.x = event.clientX;
+    t.y = event.clientY;
+    if (tap && tap.id === event.pointerId && Math.hypot(t.x - tap.x, t.y - tap.y) > 10) tap.ok = false;
+    if (pinch && touches.size === 2) {
+      const [a, b] = [...touches.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      setZoom(pinch.zoom * d / pinch.dist, (a.x + b.x) / 2, (a.y + b.y) / 2);
+    }
+  });
+
+  function endTouch(event, canTap) {
+    if (!touches.delete(event.pointerId)) return;
+    if (touches.size < 2) pinch = null;
+    if (canTap && tap && tap.id === event.pointerId && tap.ok) handlePress(event);
+    tap = null;
+  }
+  canvas.addEventListener('pointerup', event => endTouch(event, true));
+  canvas.addEventListener('pointercancel', event => endTouch(event, false));
+
+  $('zoom-in').addEventListener('click', () => setZoom(zoom * 1.4));
+  $('zoom-out').addEventListener('click', () => setZoom(zoom / 1.4));
+  $('zoom-fit').addEventListener('click', () => setZoom(1));
+
+  function handlePress(event) {
     if (!game) return;
     Y.sound.unlock();
     const pt = renderer.toLogical(event.clientX, event.clientY);
@@ -268,7 +336,7 @@
       return;
     }
     selected = null;
-  });
+  }
 
   function dropOn(trackId) {
     if (!targets().includes(trackId)) {

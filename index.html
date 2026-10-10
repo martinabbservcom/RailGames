@@ -45,7 +45,14 @@
 
     <main class="stage">
       <div class="canvas-wrap" id="canvas-wrap">
+        <div class="scroller" id="scroller">
         <canvas id="yard" aria-label="The shunting yard. Click a vehicle to pick it up, then click a track to put it there."></canvas>
+        </div>
+        <div class="zoom-controls" aria-label="Zoom">
+          <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+          <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+          <button type="button" id="zoom-fit" aria-label="Fit to screen">⤢</button>
+        </div>
         <div id="hint" class="hint"></div>
         <div id="toasts" class="toasts" aria-live="polite"></div>
       </div>

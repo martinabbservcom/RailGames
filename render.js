@@ -529,27 +529,6 @@
     label(ctx, 'PEBBLEBROOK', 650, 71, 17, INK, 'center', 700);
     box(ctx, 770, 78, 54, 38, 24, '#8a5a36', 2.5);
 
-    // Island platform.
-    box(ctx, 380, 168, 700, 50, 8, '#e8dfc6');
-    ctx.fillStyle = '#ffd93d';
-    ctx.fillRect(386, 170, 688, 3);
-    ctx.fillRect(386, 213, 688, 3);
-    for (const x of [470, 640, 810, 980]) {
-      ctx.fillStyle = INK;
-      ctx.fillRect(x - 1.5, 168, 3, 44);
-      circle(ctx, x, 168, 5, '#fff7a8', 1.8);
-    }
-    for (const x of [560, 900]) {
-      box(ctx, x - 16, 190, 32, 6, 2, '#8a5a36', 1.8);
-      ctx.fillStyle = INK;
-      ctx.fillRect(x - 13, 196, 3, 6);
-      ctx.fillRect(x + 10, 196, 3, 6);
-    }
-    for (const [n, y] of [[1, 183], [2, 203]]) {
-      circle(ctx, 430, y, 8, '#4d96ff', 1.8);
-      label(ctx, String(n), 430, y + 0.5, 11, '#fff', 'center', 700);
-    }
-
     // Goods shed and dock.
     box(ctx, 740, 254, 300, 40, 4, '#c9803a');
     ctx.fillStyle = 'rgba(0,0,0,.12)';
@@ -581,6 +560,27 @@
     for (const track of game.tracks) drawTrackBed(ctx, track, game.pointAt);
     for (const track of game.tracks) {
       if (!track.through) bufferStop(ctx, track.xEnd + 2, track.y);
+    }
+
+    // Island platform.
+    box(ctx, 380, 168, 700, 50, 8, '#e8dfc6');
+    ctx.fillStyle = '#ffd93d';
+    ctx.fillRect(386, 170, 688, 3);
+    ctx.fillRect(386, 213, 688, 3);
+    for (const x of [470, 640, 810, 980]) {
+      ctx.fillStyle = INK;
+      ctx.fillRect(x - 1.5, 168, 3, 44);
+      circle(ctx, x, 168, 5, '#fff7a8', 1.8);
+    }
+    for (const x of [560, 900]) {
+      box(ctx, x - 16, 190, 32, 6, 2, '#8a5a36', 1.8);
+      ctx.fillStyle = INK;
+      ctx.fillRect(x - 13, 196, 3, 6);
+      ctx.fillRect(x + 10, 196, 3, 6);
+    }
+    for (const [n, y] of [[1, 183], [2, 203]]) {
+      circle(ctx, 430, y, 8, '#4d96ff', 1.8);
+      label(ctx, String(n), 430, y + 0.5, 11, '#fff', 'center', 700);
     }
 
     // Engine shed.
@@ -632,7 +632,7 @@
     const iconCache = new Map();
 
     function resize(cssWidth) {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, 2600 / cssWidth));
       scale = (cssWidth * dpr) / G.W;
       canvas.width = Math.round(G.W * scale);
       canvas.height = Math.round(G.H * scale);
@@ -953,6 +953,8 @@
         const x = ((c[0] + time / (60 + i * 25)) % (G.W + 200)) - 100;
         cloud(x, c[1], c[2]);
       }
+      // Clouds drift behind the station building.
+      ctx.drawImage(scenery, 425 * scale, 18 * scale, 650 * scale, 104 * scale, 425, 18, 650, 104);
       windmill(time);
       stationClock();
 
