@@ -263,6 +263,13 @@
     const pilot = { track: null, u: HOME_U, flip: false };
     G.pilot = pilot;
 
+    // Pip starts the day parked in the engine shed road.
+    const startShed = byId.get('SHED');
+    if (!startShed.locked) {
+      pilot.track = 'SHED';
+      pilot.u = slotU(startShed, 0, startShed.cars.length) - SP;
+    }
+
     function startPlayerMove(fromId, toId, k) {
       const from = byId.get(fromId);
       const { uCouple, uOut, uFinal } = planMove(fromId, toId, k);
