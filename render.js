@@ -322,33 +322,47 @@
     box(ctx, x + w * 0.6, y + h * 0.42, w * 0.22, h * 0.58, 3, '#8a5a36', 1.8);
   }
 
-  function drawTrackBed(ctx, track, pointAt) {
+  // Drawn in layers (all ballast, then sleepers, then rails) so branching tracks merge like points
+  // instead of one track lying over another.
+  function drawTrackBed(ctx, track, pointAt, layer) {
     const samples = [];
     const start = -270;
     for (let u = start; u < track.uEnd + 60; u += 5) samples.push(pointAt(track, u));
-    // Ballast.
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    samples.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.strokeStyle = '#bba98a';
-    ctx.lineWidth = 26;
-    ctx.stroke();
-    ctx.strokeStyle = '#cdbf9f';
-    ctx.lineWidth = 20;
-    ctx.stroke();
-    // Sleepers.
-    ctx.strokeStyle = '#8a5a36';
-    ctx.lineWidth = 3.5;
-    ctx.lineCap = 'butt';
-    for (let u = start; u < track.uEnd + 40; u += 13) {
-      const p = pointAt(track, u);
-      const nx = -Math.sin(p.a) * 10;
-      const ny = Math.cos(p.a) * 10;
+    if (layer === 'ballast') {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.moveTo(p.x - nx, p.y - ny);
-      ctx.lineTo(p.x + nx, p.y + ny);
+      samples.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.strokeStyle = '#bba98a';
+      ctx.lineWidth = 26;
       ctx.stroke();
+      return;
+    }
+    if (layer === 'ballast2') {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      samples.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.strokeStyle = '#cdbf9f';
+      ctx.lineWidth = 20;
+      ctx.stroke();
+      return;
+    }
+    if (layer === 'sleepers') {
+      // Sleepers.
+      ctx.strokeStyle = '#8a5a36';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'butt';
+      for (let u = start; u < track.uEnd + 40; u += 13) {
+        const p = pointAt(track, u);
+        const nx = -Math.sin(p.a) * 10;
+        const ny = Math.cos(p.a) * 10;
+        ctx.beginPath();
+        ctx.moveTo(p.x - nx, p.y - ny);
+        ctx.lineTo(p.x + nx, p.y + ny);
+        ctx.stroke();
+      }
+      return;
     }
     // Rails.
     for (const side of [-5, 5]) {
@@ -636,17 +650,19 @@
     }
 
     // Track beds and buffers.
-    for (const track of game.tracks) drawTrackBed(ctx, track, game.pointAt);
+    for (const layer of ['ballast', 'ballast2', 'sleepers', 'rails']) {
+      for (const track of game.tracks) drawTrackBed(ctx, track, game.pointAt, layer);
+    }
     for (const track of game.tracks) {
       if (!track.through) bufferStop(ctx, track.xEnd + 2, track.y);
     }
 
     // Island platform.
-    box(ctx, 452, 168, 628, 50, 8, '#e8dfc6');
+    box(ctx, 500, 168, 580, 50, 8, '#e8dfc6');
     ctx.fillStyle = '#ffd93d';
-    ctx.fillRect(458, 170, 616, 3);
-    ctx.fillRect(458, 213, 616, 3);
-    for (const x of [500, 660, 820, 980]) {
+    ctx.fillRect(506, 170, 568, 3);
+    ctx.fillRect(506, 213, 568, 3);
+    for (const x of [545, 690, 835, 980]) {
       ctx.fillStyle = INK;
       ctx.fillRect(x - 1.5, 168, 3, 44);
       circle(ctx, x, 168, 5, '#fff7a8', 1.8);
@@ -658,8 +674,8 @@
       ctx.fillRect(x + 10, 196, 3, 6);
     }
     for (const [n, y] of [[1, 183], [2, 203]]) {
-      circle(ctx, 478, y, 8, '#4d96ff', 1.8);
-      label(ctx, String(n), 478, y + 0.5, 11, '#fff', 'center', 700);
+      circle(ctx, 526, y, 8, '#4d96ff', 1.8);
+      label(ctx, String(n), 526, y + 0.5, 11, '#fff', 'center', 700);
     }
 
     // Engine shed.

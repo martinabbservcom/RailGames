@@ -67,10 +67,11 @@
       cars: [],
       locked: false
     };
+    smoothTrack(track);
     return track;
   }
 
-  function pointAt(track, u) {
+  function rawPointAt(track, u) {
     if (u <= 0) return { x: L0.x + u, y: L0.y, a: 0 };
     const pts = track.pts;
     let i = 0;
@@ -79,6 +80,53 @@
     const q = pts[i + 1];
     const t = (u - p.u) / (q.u - p.u);
     return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, a: Math.atan2(q.y - p.y, q.x - p.x) };
+  }
+
+  // The track is rounded off so the turns out of the lead are gentle curves, not corners.
+  const SMOOTH_FROM = -300;
+  const SMOOTH_STEP = 4;
+  function smoothTrack(track) {
+    const n = Math.ceil((track.uEnd + 100 - SMOOTH_FROM) / SMOOTH_STEP);
+    let xs = [];
+    let ys = [];
+    for (let k = 0; k <= n; k++) {
+      const p = rawPointAt(track, SMOOTH_FROM + k * SMOOTH_STEP);
+      xs.push(p.x);
+      ys.push(p.y);
+    }
+    const m = 14;
+    for (let pass = 0; pass < 2; pass++) {
+      const nx = xs.slice();
+      const ny = ys.slice();
+      for (let k = m; k <= n - m; k++) {
+        let sx = 0;
+        let sy = 0;
+        for (let j = -m; j <= m; j++) {
+          sx += xs[k + j];
+          sy += ys[k + j];
+        }
+        nx[k] = sx / (2 * m + 1);
+        ny[k] = sy / (2 * m + 1);
+      }
+      xs = nx;
+      ys = ny;
+    }
+    track.sm = xs.map((x, k) => ({ x, y: ys[k] }));
+    for (let k = 0; k < n; k++) {
+      track.sm[k].a = Math.atan2(ys[k + 1] - ys[k], xs[k + 1] - xs[k]);
+    }
+    track.sm[n].a = track.sm[n - 1].a;
+  }
+
+  function pointAt(track, u) {
+    const sm = track.sm;
+    const f = (u - SMOOTH_FROM) / SMOOTH_STEP;
+    if (!sm || f < 0 || f >= sm.length - 1) return rawPointAt(track, u);
+    const k = Math.floor(f);
+    const t = f - k;
+    const p = sm[k];
+    const q = sm[k + 1];
+    return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, a: p.a };
   }
 
   // Centre of the vehicle at index `idx` when the track holds `n` vehicles.
