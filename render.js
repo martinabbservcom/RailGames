@@ -527,7 +527,25 @@
     }
     box(ctx, 585, 56, 130, 30, 8, '#fff7e0', 2.5);
     label(ctx, 'PEBBLEBROOK', 650, 71, 17, INK, 'center', 700);
-    box(ctx, 770, 78, 54, 38, 24, '#8a5a36', 2.5);
+    // Arched station door.
+    ctx.beginPath();
+    ctx.moveTo(778, 116);
+    ctx.lineTo(778, 90);
+    ctx.arc(797, 90, 19, Math.PI, 0);
+    ctx.lineTo(816, 116);
+    ctx.closePath();
+    ctx.fillStyle = '#8a5a36';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(797, 71);
+    ctx.lineTo(797, 116);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    circle(ctx, 791, 98, 2, '#ffd23f', 1);
+    circle(ctx, 803, 98, 2, '#ffd23f', 1);
 
     // Goods shed and dock.
     box(ctx, 740, 254, 300, 40, 4, '#c9803a');
