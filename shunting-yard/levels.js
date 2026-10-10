@@ -1,0 +1,92 @@
+(() => {
+  'use strict';
+
+  const Y = (window.Yard = window.Yard || {});
+
+  // kind: 'loco' | 'coach' | 'wagon'
+  Y.TYPES = {
+    steam: { name: 'Steam engine', kind: 'loco', color: '#2f9e6b', trim: '#ffd23f' },
+    diesel: { name: 'Diesel engine', kind: 'loco', color: '#e8573d', trim: '#ffe08a' },
+    coach: { name: 'Blue coach', kind: 'coach', color: '#3d8bf2' },
+    first: { name: 'Gold coach', kind: 'coach', color: '#f4b823' },
+    buffet: { name: 'Café car', kind: 'coach', color: '#e5484d' },
+    guard: { name: "Guard's van", kind: 'coach', color: '#3fb58a' },
+    coal: { name: 'Coal wagon', kind: 'wagon', color: '#6b5b53' },
+    tank: { name: 'Tanker', kind: 'wagon', color: '#7ac74f' },
+    box: { name: 'Box van', kind: 'wagon', color: '#c9803a' },
+    logs: { name: 'Log wagon', kind: 'wagon', color: '#8d99ae' },
+    brake: { name: 'Brake van', kind: 'wagon', color: '#d94f4f' }
+  };
+
+  // A departure's `spec` lists the train from the FRONT to the back, so it starts
+  // with 'loco' (any engine). Track lists in the game run from the yard entrance
+  // (left) to the far end (right), so the front of a train is the last vehicle.
+  //
+  // `arrivals[].cars` are listed from the yard entrance end once the train has been
+  // pushed into the reception road. Times are minutes after the level starts.
+  Y.LEVELS = [
+    {
+      id: 1,
+      title: 'Sunny Morning',
+      blurb: 'Your first day at Pebblebrook. Two little trains to build.',
+      start: 8 * 60,
+      tracks: ['P1', 'S1', 'S2', 'SHED', 'R'],
+      shed: ['steam'],
+      initial: {},
+      arrivals: [
+        { at: 0, from: 'Hillbury', loco: 'diesel', cars: ['guard', 'coach', 'first', 'coach'] },
+        { at: 9, from: 'Marshford', loco: 'diesel', cars: ['coach', 'guard', 'coach'] }
+      ],
+      departures: [
+        { at: 22, track: 'P1', name: 'Seaside Express', dest: 'Sandy Bay', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
+        { at: 42, track: 'P1', name: 'Golden Tour', dest: 'Castle Hill', spec: ['loco', 'first', 'coach', 'guard'] }
+      ]
+    },
+    {
+      id: 2,
+      title: 'Market Day',
+      blurb: 'Passengers and freight today. Use the goods road for the wagons.',
+      start: 8 * 60,
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'R'],
+      shed: ['diesel', 'steam'],
+      initial: {},
+      arrivals: [
+        { at: 0, from: 'Hillbury', loco: 'diesel', cars: ['coal', 'coach', 'brake', 'guard', 'coach'] },
+        { at: 7, from: 'Marshford', loco: 'steam', cars: ['box', 'tank', 'coach', 'buffet', 'coal'] },
+        { at: 16, from: 'Dockside', loco: 'diesel', cars: ['first', 'logs', 'box', 'guard', 'brake'] }
+      ],
+      departures: [
+        { at: 20, track: 'P1', name: 'Market Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] },
+        { at: 32, track: 'G', name: 'Coal to Cityville', dest: 'Cityville', spec: ['loco', 'coal', 'coal', 'tank', 'brake'] },
+        { at: 46, track: 'P2', name: 'Café Flyer', dest: 'Lakeside', spec: ['loco', 'coach', 'buffet', 'first', 'guard'] },
+        { at: 62, track: 'G', name: 'Farm Goods', dest: 'Dockside', spec: ['loco', 'box', 'box', 'logs', 'brake'] }
+      ]
+    },
+    {
+      id: 3,
+      title: 'Festival Weekend',
+      blurb: 'The busiest day of the year. Plan ahead and keep the yard moving!',
+      start: 8 * 60,
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'R'],
+      shed: ['steam', 'diesel'],
+      initial: {
+        S1: ['coach', 'guard', 'first'],
+        S2: ['logs', 'box', 'coach']
+      },
+      arrivals: [
+        { at: 0, from: 'Hillbury', loco: 'diesel', cars: ['buffet', 'coach', 'guard', 'coach'] },
+        { at: 5, from: 'Dockside', loco: 'steam', cars: ['brake', 'logs', 'first', 'coach', 'coach'] },
+        { at: 12, from: 'Marshford', loco: 'diesel', cars: ['guard', 'buffet', 'box', 'coach'] },
+        { at: 22, from: 'Castle Hill', loco: 'steam', cars: ['first', 'logs', 'coach', 'brake', 'guard', 'buffet'] }
+      ],
+      departures: [
+        { at: 16, track: 'P1', name: 'Early Commuter', dest: 'Cityville', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
+        { at: 28, track: 'G', name: 'Milk and Mail', dest: 'Greenfield', spec: ['loco', 'box', 'box', 'brake'] },
+        { at: 42, track: 'P2', name: 'Festival Special', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'coach', 'guard'] },
+        { at: 58, track: 'G', name: 'Timber Express', dest: 'Dockside', spec: ['loco', 'logs', 'logs', 'logs', 'brake'] },
+        { at: 72, track: 'P1', name: 'Café Cruiser', dest: 'Sandy Bay', spec: ['loco', 'buffet', 'coach', 'coach', 'guard'] },
+        { at: 88, track: 'P2', name: 'Golden Jubilee', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] }
+      ]
+    }
+  ];
+})();

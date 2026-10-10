@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <title>Kent Signaller — 1980</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Kent Signaller home">
+      <span class="brand-mark" aria-hidden="true">K</span>
+      <span><strong>KENT SIGNALLER</strong><small>BRITISH RAIL · SOUTHERN REGION</small></span>
+    </a>
+    <div class="scenario-tag"><span class="live-dot"></span> TRAINING SCENARIO <span class="tag-divider">/</span> WEST KENT · 1980</div>
+    <div class="clock-panel">
+      <div class="clock-copy"><span>SIMULATION TIME</span><strong id="clock">07:00:00</strong></div>
+      <button class="transport-button" id="pause-button" type="button" aria-label="Pause simulation">Ⅱ</button>
+      <div class="speed-controls" aria-label="Simulation speed">
+        <button class="speed-button selected" type="button" data-speed="1">1×</button>
+        <button class="speed-button" type="button" data-speed="2">2×</button>
+        <button class="speed-button" type="button" data-speed="4">4×</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="intro">
+        <div class="eyebrow">THE WEST KENT MAIN LINES</div>
+        <h1>Keep Kent<br>moving.</h1>
+        <p>Work the signals, watch your blocks, and get every service to its destination.</p>
+      </section>
+
+      <section class="panel instructions">
+        <div class="panel-heading"><span class="step-number">01</span><h2>Work the railway</h2></div>
+        <ul>
+          <li><span class="instruction-icon signal-icon" aria-hidden="true"></span><span><b>Click a signal</b> to clear the whole route of the train using it.</span></li>
+          <li><span class="instruction-icon stop-icon" aria-hidden="true"></span><span>Click it again to put it back to <b>danger</b>.</span></li>
+          <li><span class="instruction-icon train-icon" aria-hidden="true"></span><span>Trains stop at red signals. Occupied blocks stay locked.</span></li>
+          <li><span class="instruction-icon station-icon" aria-hidden="true"></span><span>Select a station or train for its details.</span></li>
+        </ul>
+        <p class="mouse-hint">Scroll to zoom · drag the map to pan</p>
+      </section>
+
+      <section class="panel service-panel">
+        <div class="panel-heading section-heading">
+          <div><div class="eyebrow">LIVE TRAFFIC</div><h2>Train register</h2></div>
+          <span class="count-badge" id="train-count">0</span>
+        </div>
+        <div class="register-list" id="train-list" aria-live="polite"></div>
+      </section>
+
+      <section class="panel detail-panel" id="detail-panel">
+        <div class="eyebrow" id="detail-kicker">SIGNALLER'S NOTES</div>
+        <h2 id="detail-title">Select a location</h2>
+        <p id="detail-copy">Click any station on the diagram to inspect the line and its facilities.</p>
+      </section>
+      <footer class="sidebar-footer"><span class="status-lamp"></span> BLOCK LOCKING ACTIVE <span>·</span> DEMO BUILD 01</footer>
+    </aside>
+
+    <section class="map-area" aria-label="Railway control diagram">
+      <div class="map-toolbar">
+        <div class="map-heading"><span class="map-symbol" aria-hidden="true">⌁</span><span><strong>KENT</strong><small>SCHEMATIC CONTROL DIAGRAM</small></span></div>
+        <div class="legend">
+          <span><i class="legend-track"></i> Track</span>
+          <span><i class="legend-signal"></i> Stop</span>
+          <span><i class="legend-signal clear"></i> Clear</span>
+          <span><i class="legend-train"></i> Train</span>
+          <span><i class="legend-train waiting"></i> At signal</span>
+          <span><i class="legend-train held"></i> Held</span>
+        </div>
+      </div>
+      <div class="map-scroll" id="map-scroll">
+        <svg id="rail-map" viewBox="0 0 1200 740" role="img" aria-label="Schematic railway map from London to Tonbridge, Maidstone and the Medway towns">
+          <defs>
+            <pattern id="yard-hatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#30404b" stroke-width="2"></line>
+            </pattern>
+          </defs>
+          <g id="map-background"></g>
+          <g id="track-layer"></g>
+          <g id="route-highlight-layer"></g>
+          <g id="signal-layer"></g>
+          <g id="station-layer"></g>
+          <g id="train-layer"></g>
+        </svg>
+      </div>
+      <div class="train-tooltip" id="train-tooltip" role="tooltip" hidden></div>
+      <div class="map-footer">
+        <span><b>ROUTE:</b> LONDON · SEVENOAKS · TONBRIDGE · MAIDSTONE · MEDWAY TOWNS</span>
+        <span class="schematic-warning">1980-INSPIRED SCHEMATIC · SAMPLE TIMETABLE · NOT ARCHIVAL</span>
+      </div>
+    </section>
+  </main>
+  <script src="data.js"></script>
+  <script src="sim.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
