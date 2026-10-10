@@ -15,6 +15,7 @@
   const SECONDS_PER_MINUTE = 8; // real seconds per game minute at 1x
   const PILOT_SPEED = 430; // units per second
   const BOARD_SECONDS = 4; // real seconds to board / load at 1x
+  const SERVICE_MINUTES = 5; // game minutes an arrived engine needs in the shed before it can be used again
   const UNLOAD_SECONDS = 9; // real seconds for passengers to get off an arriving train at 1x
   const CANCEL_AFTER = 6; // minutes late before a train is cancelled
   const STAR_LIMITS = [0.4, 2, 5]; // minutes late for 3, 2 and 1 star
@@ -138,6 +139,7 @@
     const G = {
       level,
       unloadings,
+      SERVICE_MINUTES,
       W,
       H,
       SP,
@@ -399,7 +401,7 @@
         dir: -1,
         steps: [
           { go: fromId, to: uOut, onStart: detach },
-          { go: toId, to: uFinal, onEnd: job => { for (const v of job.cut) v.arrived = false; attach(job); } }
+          { go: toId, to: uFinal, onEnd: job => { for (const v of job.cut) v.arrived = false; attach(job); if (toId === 'SHED') emit('servicing'); } }
         ]
       });
     }
@@ -409,6 +411,7 @@
       // The engine leads, pulling the train in: it ends up at the far end of the road.
       const loco = makeVehicle(arrival.loco);
       loco.arrived = true;
+      loco.service = SERVICE_MINUTES; // worn out from the run: needs servicing in the shed
       const cut = [...arrival.cars.map(makeVehicle), loco];
       const k = cut.length;
       const uFinal = rec.uEnd - SP / 2 - (rec.cars.length + k) * SP;
@@ -493,8 +496,23 @@
       return due && !G.job && arrivalReady() === null ? due : null;
     };
 
-    G.validTargets = (fromId, k) =>
-      tracks.filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap).map(t => t.id);
+    // An engine that has just arrived must be serviced in the shed before it can work again.
+    const needsService = v => isLoco(v.type) && v.service > 0;
+    G.needsService = needsService;
+
+    // True if the first k vehicles of a road include an engine that still needs servicing.
+    G.cutNeedsService = (fromId, k) => byId.get(fromId).cars.slice(0, k).some(needsService);
+
+    G.validTargets = (fromId, k) => {
+      const from = byId.get(fromId);
+      const cut = from.cars.slice(0, k);
+      const worn = cut.some(needsService);
+      return tracks
+        .filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
+        // Worn engines may only go to the shed (and only by themselves).
+        .filter(t => !worn || (t.id === 'SHED' && cut.every(v => isLoco(v.type))))
+        .map(t => t.id);
+    };
 
     G.startMove = (fromId, idx, toId) => {
       if (G.busy() || G.finished) return false;
@@ -587,12 +605,15 @@
         if (t.id === track.id || t.locked || isUnloading(t.id)) continue;
         t.cars.forEach((v, idx) => {
           const match = need === 'loco' ? isLoco(v.type) : v.type === need;
-          if (!match) return;
+          if (!match || t.cars.slice(0, idx + 1).some(needsService)) return;
           const score = idx * 10 + (t.id === 'SHED' ? 0 : 1);
           if (!best || score < best.score) best = { t, idx, score };
         });
       }
-      if (!best) return { text: `${dep.name} needs ${name(need)}, but there isn't one in the yard yet. Wait for the next train.` };
+      if (!best) {
+        const servicing = need === 'loco' && tracks.some(t => t.cars.some(needsService));
+        return { text: servicing ? `${dep.name} needs an engine, but they are all being serviced in the shed. Wait a moment.` : `${dep.name} needs ${name(need)}, but there isn't one in the yard yet. Wait for the next train.` };
+      }
       if (best.idx > 0) {
         const t = best.t;
         const k = best.idx;
@@ -759,6 +780,15 @@
       }
       if (G.job) stepJob(dt);
       updateUnloading(dt);
+      // Engines in the shed are serviced, one clock minute at a time.
+      for (const v of byId.get('SHED').cars) {
+        if (!needsService(v)) continue;
+        v.service -= dt / SECONDS_PER_MINUTE;
+        if (v.service <= 0) {
+          v.service = 0;
+          emit('serviced', { vehicle: v });
+        }
+      }
 
       updateDepartures(dt);
       updateLeaving(dt);

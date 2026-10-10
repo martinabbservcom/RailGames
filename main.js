@@ -338,6 +338,7 @@
       } else {
         selected = { track: car.track, idx: car.idx };
         Y.sound.pick();
+        if (game.cutNeedsService(car.track, car.idx + 1)) toast('That engine needs servicing, so it can only go to the engine shed.');
       }
       return;
     }
@@ -498,11 +499,18 @@
           Y.sound.whistle();
           toast(`A train from ${event.arrival.from} is arriving!`);
           break;
+        case 'servicing':
+          toast('The engine is being serviced in the shed.');
+          break;
+        case 'serviced':
+          Y.sound.ding();
+          toast('An engine has been serviced and is ready to work.', 'good');
+          break;
         case 'unloading':
           toast('Passengers are getting off…');
           break;
         case 'arrived':
-          toast(`The ${event.arrival.from} train is unloaded. Move it out of the way!`);
+          toast(`The ${event.arrival.from} train is unloaded. Move it out of the way. Its engine needs servicing and goes to the shed.`);
           break;
         case 'held':
           Y.sound.deny();

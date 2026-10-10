@@ -808,6 +808,27 @@
       ctx.stroke();
     }
 
+    const byShed = pose => pose.track === 'SHED';
+
+    // A spanner badge over an engine that needs servicing; in the shed it shows how far along it is.
+    function servicingBadge(pose, inShed) {
+      const x = pose.x;
+      const y = pose.y - 60;
+      path(ctx, x - 15, y - 9, 30, 18, 9);
+      ctx.fillStyle = inShed ? '#fff' : '#ffb938';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      if (inShed) {
+        const done = 1 - Math.max(0, Math.min(1, pose.v.service / G.SERVICE_MINUTES));
+        path(ctx, x - 12, y + 3, 24 * Math.max(0.08, done), 4, 2);
+        ctx.fillStyle = '#3ccf7a';
+        ctx.fill();
+      }
+      label(ctx, '🔧', x, y - (inShed ? 2 : 0), 11, INK, 'center', 700);
+    }
+
     function drawVehicle(pose, extra) {
       ctx.save();
       ctx.translate(pose.x, pose.y);
@@ -1187,6 +1208,7 @@
         const hovered = ui.hoverCar && ui.hoverCar.track === pose.track && ui.hoverCar.idx >= pose.idx && !sel && !G.busy();
         const lift = picked ? -3 + bounce * 0.5 : 0;
         drawVehicle({ ...pose, y: pose.y + lift }, picked ? { glow: '#ffe14d' } : hovered ? { glow: 'rgba(255,255,255,.9)' } : null);
+        if (G.needsService(pose.v)) servicingBadge(pose, byShed(pose));
         if ((pose.cut || pose.leaving) && pose.v.type === 'steam' && time - lastPuff > 120) puff(pose.x + 14, pose.y - 46, false);
         if (picked && pose.idx === sel.idx) {
           ctx.save();
