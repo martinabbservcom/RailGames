@@ -326,24 +326,31 @@
       });
     }
 
-    // Pip must never be left on the reception road when a train is due: it drives into the
-    // engine shed road instead. (Pip may stay on any other road.)
-    function startToShed() {
-      const rec = byId.get('R');
+    // Pip must never be left on the reception road, or on the lead by the signal box, when a
+    // train is due: it parks on the engine shed road (or another open road) and stays out of the way.
+    function parkingRoad() {
+      const open = t => !t.locked && t.id !== 'R' && t.cars.length < t.cap;
       const shed = byId.get('SHED');
-      const uClear = Math.min(rec.uBranch, shed.uBranch) - 40;
-      const uStop = slotU(shed, 0, shed.cars.length) - SP;
+      return open(shed) ? shed : tracks.find(open) || null;
+    }
+
+    function startPark(dest) {
+      const from = pilot.track === null ? null : byId.get(pilot.track);
+      const uStop = slotU(dest, 0, dest.cars.length) - SP;
+      const steps = [];
+      if (from && from !== dest) steps.push({ go: from.id, to: Math.min(from.uBranch, dest.uBranch) - 40 });
+      steps.push({ go: dest.id, to: uStop });
       startJob({
         kind: 'home',
         from: null,
-        to: 'SHED',
+        to: dest.id,
         k: 0,
-        pilotU: pilot.u,
-        track: 'R',
-        dir: -1,
-        steps: [{ go: 'R', to: uClear }, { go: 'SHED', to: uStop }],
+        pilotU: pilot.track === null ? HOME_U : pilot.u,
+        track: from ? from.id : dest.id,
+        dir: pilot.track === null ? 1 : -1,
+        steps,
         onDone: () => {
-          pilot.track = 'SHED';
+          pilot.track = dest.id;
           pilot.u = uStop;
           pilot.flip = false;
         }
@@ -353,25 +360,6 @@
     // Pip that has been idle at the signal box for a while parks in the engine shed road (if there is room).
     const IDLE_SECONDS = 5;
     let idle = 0;
-    function startParkInShed() {
-      const shed = byId.get('SHED');
-      const uStop = slotU(shed, 0, shed.cars.length) - SP;
-      startJob({
-        kind: 'home',
-        from: null,
-        to: 'SHED',
-        k: 0,
-        pilotU: HOME_U,
-        track: 'SHED',
-        dir: 1,
-        steps: [{ go: 'SHED', to: uStop }],
-        onDone: () => {
-          pilot.track = 'SHED';
-          pilot.u = uStop;
-          pilot.flip = false;
-        }
-      });
-    }
 
     G.sendHome = () => {
       if (G.busy() || G.finished || pilot.track === null) return false;
@@ -588,9 +576,10 @@
       if (G.finished) return;
       G.minute += dt / SECONDS_PER_MINUTE;
 
-      if (!G.job && pilot.track === 'R' && arrivalReady()) {
-        // A train is arriving on the reception road, so Pip moves into the engine shed road.
-        startToShed();
+      const parking = parkingRoad();
+      if (!G.job && (pilot.track === 'R' || pilot.track === null) && arrivalReady() && parking) {
+        // A train is arriving, so Pip gets out of the throat and parks on another road.
+        startPark(parking);
       } else if (!G.job && (pilot.track === 'R' || pilot.track === 'SHED') && locoReady()) {
         // The engine is about to run from the reception road into the shed, so Pip heads home.
         startHome();
@@ -608,7 +597,8 @@
         idle += dt;
         if (idle >= IDLE_SECONDS) {
           idle = 0;
-          startParkInShed();
+          const dest = parkingRoad();
+          if (dest && dest.id === 'SHED') startPark(dest);
         }
       }
       if (G.job) stepJob(dt);
