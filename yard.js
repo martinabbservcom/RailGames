@@ -452,6 +452,8 @@
         const ok = !busy.has(dep.track) && formationMatches(dep, track);
 
         if (ok) {
+          // A correct train doesn't need Pip any more: it uncouples and heads home straight away.
+          if (!G.job && pilot.track === dep.track) startHome();
           if (dep.status === 'waiting') {
             dep.status = 'boarding';
             emit('boarding', { dep });
