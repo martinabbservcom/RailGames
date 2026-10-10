@@ -350,6 +350,29 @@
       });
     }
 
+    // Pip that has been idle at the signal box for a while parks in the engine shed road (if there is room).
+    const IDLE_SECONDS = 5;
+    let idle = 0;
+    function startParkInShed() {
+      const shed = byId.get('SHED');
+      const uStop = slotU(shed, 0, shed.cars.length) - SP;
+      startJob({
+        kind: 'home',
+        from: null,
+        to: 'SHED',
+        k: 0,
+        pilotU: HOME_U,
+        track: 'SHED',
+        dir: 1,
+        steps: [{ go: 'SHED', to: uStop }],
+        onDone: () => {
+          pilot.track = 'SHED';
+          pilot.u = uStop;
+          pilot.flip = false;
+        }
+      });
+    }
+
     G.sendHome = () => {
       if (G.busy() || G.finished || pilot.track === null) return false;
       startHome();
@@ -577,6 +600,15 @@
         else {
           const arrival = arrivalReady();
           if (arrival) startArrival(arrival);
+        }
+      }
+      const shedOpen = !byId.get('SHED').locked && byId.get('SHED').cars.length < byId.get('SHED').cap;
+      if (G.job || pilot.track !== null) idle = 0;
+      else if (shedOpen && !locoReady() && !arrivalReady()) {
+        idle += dt;
+        if (idle >= IDLE_SECONDS) {
+          idle = 0;
+          startParkInShed();
         }
       }
       if (G.job) stepJob(dt);
