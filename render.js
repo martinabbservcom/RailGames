@@ -353,8 +353,14 @@
       ctx.strokeStyle = '#8a5a36';
       ctx.lineWidth = 3.5;
       ctx.lineCap = 'butt';
+      // Where a branch has only just left the spine its sleepers would criss-cross the main line's,
+      // so they start once the two roads have properly parted (like the sleepers at real points).
+      const b = pointAt(track, track.uBranch);
+      const bd = pointAt(track, track.uBranch - 4);
+      const bl = Math.hypot(b.x - bd.x, b.y - bd.y) || 1;
       for (let u = start; u < track.uEnd + 40; u += 13) {
         const p = pointAt(track, u);
+        if (u > track.uBranch && Math.abs(((p.x - b.x) * (b.y - bd.y) - (p.y - b.y) * (b.x - bd.x)) / bl) < 13) continue;
         const nx = -Math.sin(p.a) * 10;
         const ny = Math.cos(p.a) * 10;
         ctx.beginPath();
@@ -641,6 +647,24 @@
     }
     for (const track of game.tracks) {
       if (!track.through) bufferStop(ctx, track.side === 'left' ? track.xEnd - 10 : track.xEnd + 2, track.y);
+    }
+
+    // A little ground frame (points lever) beside each set of points.
+    for (const track of game.tracks) {
+      const b = game.pointAt(track, track.uBranch);
+      const bd = game.pointAt(track, track.uBranch - 4);
+      const l = Math.hypot(b.x - bd.x, b.y - bd.y) || 1;
+      const side = track.side === 'left' ? -1 : 1;
+      const x = b.x + side * ((b.y - bd.y) / l) * 24;
+      const y = b.y - side * ((b.x - bd.x) / l) * 24;
+      box(ctx, x - 5, y - 3, 10, 7, 2, '#5a6378', 1.6);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 3);
+      ctx.lineTo(x - 3, y - 13);
+      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = '#e5484d';
+      ctx.stroke();
+      circle(ctx, x - 3, y - 14, 2.6, '#ffd23f', 1.2);
     }
 
     // Island platform.

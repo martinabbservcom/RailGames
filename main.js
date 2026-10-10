@@ -353,7 +353,13 @@
     if (!targets().includes(trackId)) {
       Y.sound.deny();
       const t = game.byId.get(trackId);
-      toast(t.locked ? 'That track is closed today.' : 'Not enough room on that track!', 'bad');
+      let message = 'Not enough room on that track!';
+      if (t.locked) message = 'That track is closed today.';
+      else if (game.isUnloading(trackId)) message = 'Passengers are still getting off there.';
+      else if (game.cutNeedsService(selected.track, selected.idx + 1) && t.kind !== 'shed') {
+        message = 'That engine needs servicing, so it can only go to an engine shed.';
+      }
+      toast(message, 'bad');
       return;
     }
     if (game.startMove(selected.track, selected.idx, trackId)) {
@@ -576,7 +582,7 @@
       text = `Picked up ${n} ${n === 1 ? 'vehicle' : 'vehicles'}. Now click a green track to put ${n === 1 ? 'it' : 'them'} there.`;
     } else if (game.pilot.track !== null) {
       text = 'Pip is hooked on to the train. Pick another vehicle to keep going, or click Pip to send it home.';
-    } else if (game.minute - game.level.start < 3) text = 'Click a vehicle to pick it up. Pip takes it and everything between it and the yard entrance. Engines drive themselves.';
+    } else if (game.minute - game.level.start < 3) text = 'Click a vehicle to pick it up. Pip takes it and everything between it and the yard entrance. A train with an engine drives itself.';
     hint.textContent = text;
   }
 

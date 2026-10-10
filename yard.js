@@ -76,8 +76,10 @@
       p2 = left ? { x: p1.x - 62, y: def.y } : { x: p1.x + bend * 1.4 + 20, y: def.y };
       add(p0.x, p0.y);
       uBranch = pts[pts.length - 1].u;
-      const c1 = { x: p0.x + SPINE_DIR.x * 40, y: p0.y + SPINE_DIR.y * 40 };
-      const c2 = { x: p2.x + (left ? 45 : -45), y: p2.y };
+      // Leave the spine at a shallow angle, then ease round to the straight: like a real turnout.
+      const reach = left ? 40 : 58;
+      const c1 = { x: p0.x + SPINE_DIR.x * reach, y: p0.y + SPINE_DIR.y * reach };
+      const c2 = { x: p2.x + (left ? 45 : -72), y: p2.y };
       for (let i = 1; i <= 30; i++) {
         const p = cubic(p0, c1, c2, p2, i / 30);
         add(p.x, p.y);
@@ -544,8 +546,8 @@
         from.cars.unshift(...from.cars.splice(idx, 1));
         k = 1;
       }
-      // Engines have their own power, so they don't need Pip to shunt them.
-      if (from.cars.slice(0, k).every(v => isLoco(v.type))) {
+      // A train with an engine in it has its own power, so it doesn't need Pip to shunt it.
+      if (from.cars.slice(0, k).some(v => isLoco(v.type))) {
         if (pilot.track === fromId || pilot.track === toId) {
           // Pip is in the way: send it home first, then the engine goes.
           startHome(() => startEngineRun(fromId, toId, k));
