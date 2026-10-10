@@ -31,102 +31,77 @@
 
   const spinePoint = y => ({ x: L0.x + (L0.y - y) * SPINE_K, y });
 
-  // A track is a sampled path measured by distance `u` from L0. Before L0 the
-  // lead runs straight left; after the last point the track runs straight right.
+  // A track is a sampled path measured by distance `u` from L0. Before the first sample the
+  // lead runs straight left; after the last point the track runs straight right. Every track
+  // shares the same lead and spine, then peels off with its own smooth curve, so tracks
+  // diverge like points and never cross.
+  const SPINE_DIR = (() => {
+    const len = Math.hypot(SPINE_K, 1);
+    return { x: SPINE_K / len, y: -1 / len };
+  })();
+  const CORNER = 22; // size of the shared bend where the lead turns onto the spine
+
+  function cubic(a, b, c, d, t) {
+    const m = 1 - t;
+    const w = [m * m * m, 3 * m * m * t, 3 * m * t * t, t * t * t];
+    return { x: w[0] * a.x + w[1] * b.x + w[2] * c.x + w[3] * d.x, y: w[0] * a.y + w[1] * b.y + w[2] * c.y + w[3] * d.y };
+  }
+
   function buildTrack(def) {
-    const bend = Math.min(60, L0.y - def.y - 6);
-    const p0 = spinePoint(def.y + bend);
-    const p1 = spinePoint(def.y);
-    const p2 = { x: p1.x + bend * 1.4, y: def.y };
-    const pts = [{ x: L0.x, y: L0.y, u: 0 }];
+    const pts = [];
     const add = (x, y) => {
       const last = pts[pts.length - 1];
-      pts.push({ x, y, u: last.u + Math.hypot(x - last.x, y - last.y) });
+      pts.push({ x, y, u: last ? last.u + Math.hypot(x - last.x, y - last.y) : -CORNER });
     };
-    add(p0.x, p0.y);
-    const steps = 14;
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const a = (1 - t) * (1 - t);
-      const b = 2 * (1 - t) * t;
-      const c = t * t;
-      add(a * p0.x + b * p1.x + c * p2.x, a * p0.y + b * p1.y + c * p2.y);
+    const bendY = L0.y - def.y;
+    let uBranch;
+    let p2;
+    {
+      // Shared corner: lead turns onto the spine.
+      const cornerEnd = { x: L0.x + SPINE_DIR.x * CORNER, y: L0.y + SPINE_DIR.y * CORNER };
+      add(L0.x - CORNER, L0.y);
+      for (let i = 1; i <= 8; i++) {
+        const t = i / 8;
+        const m = 1 - t;
+        add(m * m * (L0.x - CORNER) + 2 * m * t * L0.x + t * t * cornerEnd.x, m * m * L0.y + 2 * m * t * L0.y + t * t * cornerEnd.y);
+      }
+      const bend = Math.min(60, bendY - CORNER - 4);
+      const p0 = spinePoint(def.y + bend);
+      const p1 = spinePoint(def.y);
+      p2 = { x: p1.x + bend * 1.4 + 20, y: def.y };
+      add(p0.x, p0.y);
+      uBranch = pts[pts.length - 1].u;
+      const c1 = { x: p0.x + SPINE_DIR.x * 40, y: p0.y + SPINE_DIR.y * 40 };
+      const c2 = { x: p2.x - 45, y: p2.y };
+      for (let i = 1; i <= 30; i++) {
+        const p = cubic(p0, c1, c2, p2, i / 30);
+        add(p.x, p.y);
+      }
     }
+    const uStraight = pts[pts.length - 1].u;
     add(W + 500, def.y);
-    const uBranch = pts[1].u;
-    const uStraight = pts[pts.length - 2].u;
-    const straightX = p2.x;
-    const track = {
+    return {
       ...def,
       pts,
       uBranch,
       uStraight,
-      straightX,
-      uEnd: uStraight + (def.xEnd - straightX),
-      cap: Math.floor((def.xEnd - straightX - 8) / SP),
+      straightX: p2.x,
+      uEnd: uStraight + (def.xEnd - p2.x),
+      cap: Math.floor((def.xEnd - p2.x - 8) / SP),
       cars: [],
       locked: false
     };
-    smoothTrack(track);
-    return track;
   }
 
-  function rawPointAt(track, u) {
-    if (u <= 0) return { x: L0.x + u, y: L0.y, a: 0 };
+  function pointAt(track, u) {
     const pts = track.pts;
+    if (u <= pts[0].u) return { x: pts[0].x + (u - pts[0].u), y: pts[0].y, a: 0 };
     let i = 0;
     while (i < pts.length - 2 && pts[i + 1].u < u) i++;
     const p = pts[i];
     const q = pts[i + 1];
     const t = (u - p.u) / (q.u - p.u);
     return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, a: Math.atan2(q.y - p.y, q.x - p.x) };
-  }
-
-  // The track is rounded off so the turns out of the lead are gentle curves, not corners.
-  const SMOOTH_FROM = -300;
-  const SMOOTH_STEP = 4;
-  function smoothTrack(track) {
-    const n = Math.ceil((track.uEnd + 100 - SMOOTH_FROM) / SMOOTH_STEP);
-    let xs = [];
-    let ys = [];
-    for (let k = 0; k <= n; k++) {
-      const p = rawPointAt(track, SMOOTH_FROM + k * SMOOTH_STEP);
-      xs.push(p.x);
-      ys.push(p.y);
-    }
-    const m = 14;
-    for (let pass = 0; pass < 2; pass++) {
-      const nx = xs.slice();
-      const ny = ys.slice();
-      for (let k = m; k <= n - m; k++) {
-        let sx = 0;
-        let sy = 0;
-        for (let j = -m; j <= m; j++) {
-          sx += xs[k + j];
-          sy += ys[k + j];
-        }
-        nx[k] = sx / (2 * m + 1);
-        ny[k] = sy / (2 * m + 1);
-      }
-      xs = nx;
-      ys = ny;
-    }
-    track.sm = xs.map((x, k) => ({ x, y: ys[k] }));
-    for (let k = 0; k < n; k++) {
-      track.sm[k].a = Math.atan2(ys[k + 1] - ys[k], xs[k + 1] - xs[k]);
-    }
-    track.sm[n].a = track.sm[n - 1].a;
-  }
-
-  function pointAt(track, u) {
-    const sm = track.sm;
-    const f = (u - SMOOTH_FROM) / SMOOTH_STEP;
-    if (!sm || f < 0 || f >= sm.length - 1) return rawPointAt(track, u);
-    const k = Math.floor(f);
-    const t = f - k;
-    const p = sm[k];
-    const q = sm[k + 1];
-    return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, a: p.a };
   }
 
   // Centre of the vehicle at index `idx` when the track holds `n` vehicles.
@@ -169,7 +144,6 @@
       minute: level.start,
       job: null,
       leaving: [],
-      sysQueue: [],
       events: [],
       finished: false,
       stars: 0,
@@ -352,6 +326,30 @@
       });
     }
 
+    // Pip must never be left on the reception road when a train is due: it drives into the
+    // engine shed road instead. (Pip may stay on any other road.)
+    function startToShed() {
+      const rec = byId.get('R');
+      const shed = byId.get('SHED');
+      const uClear = Math.min(rec.uBranch, shed.uBranch) - 40;
+      const uStop = slotU(shed, 0, shed.cars.length) - SP;
+      startJob({
+        kind: 'home',
+        from: null,
+        to: 'SHED',
+        k: 0,
+        pilotU: pilot.u,
+        track: 'R',
+        dir: -1,
+        steps: [{ go: 'R', to: uClear }, { go: 'SHED', to: uStop }],
+        onDone: () => {
+          pilot.track = 'SHED';
+          pilot.u = uStop;
+          pilot.flip = false;
+        }
+      });
+    }
+
     G.sendHome = () => {
       if (G.busy() || G.finished || pilot.track === null) return false;
       startHome();
@@ -372,14 +370,17 @@
         dir: -1,
         steps: [
           { go: fromId, to: uOut, onStart: detach },
-          { go: toId, to: uFinal, onEnd: attach }
+          { go: toId, to: uFinal, onEnd: job => { for (const v of job.cut) v.arrived = false; attach(job); } }
         ]
       });
     }
 
     function startArrival(arrival) {
       const rec = byId.get('R');
-      const cut = [makeVehicle(arrival.loco), ...arrival.cars.map(makeVehicle)];
+      // The engine leads, pulling the train in: it ends up at the buffer end of the road.
+      const loco = makeVehicle(arrival.loco);
+      loco.arrived = true;
+      const cut = [...arrival.cars.map(makeVehicle), loco];
       const k = cut.length;
       const uFinal = rec.uEnd - SP / 2 - (rec.cars.length + k) * SP;
       arrival.status = 'arriving';
@@ -397,20 +398,29 @@
         onDone: () => {
           arrival.status = 'arrived';
           emit('arrived', { arrival });
-          G.sysQueue.push({ from: 'R', to: 'SHED' });
         }
       });
       emit('arriving', { arrival });
     }
 
     // ---- Public queries ---------------------------------------------------------
-    G.busy = () => !!G.job || G.sysQueue.length > 0 || arrivalReady() !== null;
+    G.busy = () => !!G.job || locoReady() || arrivalReady() !== null;
+
+    // The signal clears only when the reception road is empty (the last engine has gone to the shed).
+    G.receptionClear = () => byId.get('R').cars.length === 0;
+
+    // An arrived engine that has been uncovered (the coaches are gone) drives itself to the shed.
+    function locoReady() {
+      const rec = byId.get('R');
+      const shed = byId.get('SHED');
+      return rec.cars.length > 0 && rec.cars[0].arrived === true && shed.cars.length < shed.cap;
+    }
 
     function arrivalReady() {
       const rec = byId.get('R');
       for (const arrival of arrivals) {
         if (arrival.status !== 'coming' || arrival.at + level.start > G.minute) continue;
-        return rec.cars.length + arrival.cars.length + 1 <= rec.cap ? arrival : null;
+        return rec.cars.length === 0 && arrival.cars.length + 1 <= rec.cap ? arrival : null;
       }
       return null;
     }
@@ -555,18 +565,16 @@
       if (G.finished) return;
       G.minute += dt / SECONDS_PER_MINUTE;
 
-      if (!G.job && pilot.track !== null && (G.sysQueue.length || arrivalReady())) {
-        // Trains and engines need the yard throat clear, so Pip goes home first.
+      if (!G.job && pilot.track === 'R' && arrivalReady()) {
+        // A train is arriving on the reception road, so Pip moves into the engine shed road.
+        startToShed();
+      } else if (!G.job && (pilot.track === 'R' || pilot.track === 'SHED') && locoReady()) {
+        // The engine is about to run from the reception road into the shed, so Pip heads home.
         startHome();
       }
       if (!G.job) {
-        const sys = G.sysQueue.shift();
-        if (sys) {
-          const shed = byId.get(sys.to);
-          if (shed.cars.length < shed.cap && byId.get(sys.from).cars.length > 0 && isLoco(byId.get(sys.from).cars[0].type)) {
-            startEngineRun(sys.from, sys.to);
-          }
-        } else {
+        if (locoReady()) startEngineRun('R', 'SHED');
+        else {
           const arrival = arrivalReady();
           if (arrival) startArrival(arrival);
         }

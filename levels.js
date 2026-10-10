@@ -23,7 +23,7 @@
   // (left) to the far end (right), so the front of a train is the last vehicle.
   //
   // `arrivals[].cars` are listed from the yard entrance end once the train has been
-  // pushed into the reception road. Times are minutes after the level starts.
+  // pulled into the reception road; the engine leads, so it ends up at the far (buffer) end. Times are minutes after the level starts.
   Y.LEVELS = [
     {
       id: 1,

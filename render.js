@@ -908,7 +908,20 @@
       ctx.stroke();
     }
 
+    // Reception signal beside the signal box: red until the road is empty, green while a train comes in.
+    function receptionSignal() {
+      const go = G.receptionClear() || (G.job && G.job.kind === 'arrival');
+      const x = 92;
+      const y = 668;
+      ctx.fillStyle = INK;
+      ctx.fillRect(x - 1.5, y - 30, 3, 36);
+      box(ctx, x - 6, y - 40, 12, 20, 5, '#39435c', 2);
+      circle(ctx, x, y - 34, 3.6, go ? '#3a4a3a' : '#ff5d5d');
+      circle(ctx, x, y - 25, 3.6, go ? '#5dff8a' : '#4a3a3a');
+    }
+
     function signals() {
+      receptionSignal();
       for (const track of G.tracks) {
         if (!track.through) continue;
         const dep = G.activeDeparture(track.id);
