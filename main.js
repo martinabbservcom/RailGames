@@ -370,7 +370,7 @@
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', () => setTimeout(fit, 150));
   if (window.ResizeObserver) new ResizeObserver(fit).observe(wrap);
-  document.addEventListener('gesturestart', e => e.preventDefault());
+  $('rotate-close').addEventListener('click', () => $('rotate-hint').classList.add('dismissed'));
 
   // ---- Game events ---------------------------------------------------------------
   function pilotPoint() {

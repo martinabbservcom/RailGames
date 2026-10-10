@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -37,6 +37,11 @@
         <button class="pill" id="menu-button" type="button">Menu</button>
       </div>
     </header>
+
+    <div id="rotate-hint" class="rotate-hint">
+      <span>📱↻ Turn your phone sideways for a bigger board. You can also pinch to zoom.</span>
+      <button type="button" id="rotate-close" aria-label="Dismiss">×</button>
+    </div>
 
     <main class="stage">
       <div class="canvas-wrap" id="canvas-wrap">
