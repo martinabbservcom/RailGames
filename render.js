@@ -389,7 +389,7 @@
     ctx.fillRect(x + 1.5, y + 2, 5, 3);
   }
 
-  const roadSegs = [[[-10, 470], [60, 450], [40, 400], [130, 360]], [[130, 360], [215, 320], [200, 240], [110, 210]],
+  const roadSegs = [[[-10, 420], [60, 410], [40, 385], [130, 360]], [[130, 360], [215, 320], [200, 240], [110, 210]],
     // Winds on and leaves the board at the left edge.
     [[110, 210], [50, 190], [20, 205], [-15, 215]]];
   const roadAt = (seg, t) => {
@@ -495,8 +495,8 @@
     ctx.lineWidth = 20;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-10, 470);
-    ctx.bezierCurveTo(60, 450, 40, 400, 130, 360);
+    ctx.moveTo(-10, 420);
+    ctx.bezierCurveTo(60, 410, 40, 385, 130, 360);
     ctx.bezierCurveTo(215, 320, 200, 240, 110, 210);
     ctx.bezierCurveTo(50, 190, 20, 205, -15, 215);
     ctx.stroke();
@@ -516,8 +516,6 @@
     // Houses and trees.
     // Houses sit just beside the road, one side or the other.
     const houseDefs = [
-      [0, 0.25, 1, 44, 30, '#ffe3a3', '#e5484d'],
-      [0, 0.6, 1, 40, 28, '#ffc2d1', '#5b6ee1'],
       [1, 0.15, 1, 42, 30, '#d9f5c3', '#8b5cf6'],
       [1, 0.45, -1, 46, 32, '#cfeaff', '#e5484d'],
       [1, 0.7, 1, 42, 30, '#ffe9b8', '#2f9e8f'],
@@ -531,7 +529,7 @@
       house(ctx, cx - w / 2, cy - h / 2 + 6, w, h, wall, roof);
       spots.push([cx, cy, 30]);
     }
-    for (const x of [40, 100, 160, 220, 270]) spots.push([x, 585, 44]);
+    for (const x of [40, 100, 160, 220, 270]) spots.push([x, 585, 44], [x, 490, 50]);
     let tries = 0;
     let treeCount = 0;
     while (treeCount < 18 && tries++ < 800) {
@@ -683,12 +681,15 @@
     label(ctx, 'ENGINE SHED', 100, 556, 10, '#fff5d8', 'center', 700);
 
     // Signal box near the lead.
+    ctx.save();
+    ctx.translate(130, 0);
     box(ctx, 28, 640, 44, 34, 3, '#fff0c9');
     box(ctx, 22, 616, 56, 28, 3, '#6b8cff');
     box(ctx, 30, 622, 14, 16, 2, '#d9f1ff', 1.5);
     box(ctx, 56, 622, 14, 16, 2, '#d9f1ff', 1.5);
     box(ctx, 48, 655, 14, 19, 2, '#8a5a36', 1.5);
     label(ctx, 'SIGNAL BOX', 50, 606, 9, INK, 'center', 700);
+    ctx.restore();
 
     // Fence along the bottom edge.
     ctx.fillStyle = '#fff';
@@ -788,7 +789,7 @@
       ctx.stroke();
     }
 
-    const byShed = pose => pose.track === 'SHED';
+    const byShed = pose => pose.track === 'SHED' || pose.track === 'SHED2';
 
     // A spanner badge over an engine that needs servicing; in the shed it shows how far along it is.
     function servicingBadge(pose, inShed) {
@@ -832,8 +833,8 @@
       const dep = G.activeDeparture(track.id);
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
       const x = track.xMin + 8;
-      // The engine shed's label sits above its roof so the engines don't hide it.
-      const y = track.side === 'left' ? track.y - 95 : track.y - 33;
+      // The engine shed labels sit below their roads and are drawn over the engines.
+      const y = track.kind === 'shed' ? track.y + 30 : track.y - 33;
       const lines = [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
@@ -924,13 +925,11 @@
       circle(ctx, x, y - 25, 3.6, state === 'green' ? '#5dff8a' : '#4a3a3a');
     }
 
-    // Entry signals: one by the signal box for Siding 5, and one at the throat of each
-    // platform that a train arrives on. Red until the road is empty, amber when a train is due soon.
+    // Entry signals: one at the throat of each road that a train arrives on. Red until the road is empty, amber when a train is due soon.
     function entrySignals() {
-      signalPost(92, 668, G.entrySignal('S5'));
       const used = new Set(G.arrivals.map(a => a.track));
       for (const track of G.tracks) {
-        if (track.id === 'S5' || track.locked || !used.has(track.id)) continue;
+        if (track.locked || !used.has(track.id)) continue;
         signalPost(track.straightX - 44, track.y - 16, G.entrySignal(track.id));
       }
     }
@@ -1177,7 +1176,7 @@
           ctx.lineWidth = 3;
           ctx.stroke();
         }
-        tab(track, time);
+        if (track.kind !== 'shed') tab(track, time);
         if (track.locked) lockedOverlay(track);
       }
       signals();
@@ -1212,6 +1211,8 @@
         }
       }
       if (time - lastPuff > 120) lastPuff = time;
+
+      for (const track of G.tracks) if (track.kind === 'shed') tab(track, time);
 
       // The shunting engine.
       const pilot = G.pilotPose();

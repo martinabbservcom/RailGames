@@ -27,10 +27,10 @@
     { id: 'S1', name: 'Siding 1', y: 384, xEnd: 960, through: false, kind: 'siding' },
     { id: 'S2', name: 'Siding 2', y: 448, xEnd: 960, through: false, kind: 'siding' },
     { id: 'S3', name: 'Siding 3', y: 512, xEnd: 960, through: false, kind: 'siding' },
-    { id: 'S4', name: 'Siding 4', y: 576, xEnd: 960, through: false, kind: 'siding' },
-    { id: 'S5', name: 'Siding 5', y: 640, xEnd: 960, through: false, kind: 'siding' },
     // The engine shed branches off the spine to the LEFT, above the signal box, and runs leftwards.
-    { id: 'SHED', name: 'Engine shed', y: 590, xEnd: 26, through: false, kind: 'shed', side: 'left' }
+    { id: 'SHED', name: 'Engine shed 1', y: 590, xEnd: 26, through: false, kind: 'shed', side: 'left' },
+    // A second shed road on the other side of the shed building.
+    { id: 'SHED2', name: 'Engine shed 2', y: 500, xEnd: 26, through: false, kind: 'shed', side: 'left' }
   ];
 
   const spinePoint = y => ({ x: L0.x + (L0.y - y) * SPINE_K, y });
@@ -70,7 +70,7 @@
         const m = 1 - t;
         add(m * m * (L0.x - CORNER) + 2 * m * t * L0.x + t * t * cornerEnd.x, m * m * L0.y + 2 * m * t * L0.y + t * t * cornerEnd.y);
       }
-      const bend = left ? 56 : Math.min(60, bendY - CORNER - 4);
+      const bend = left ? 44 : Math.min(60, bendY - CORNER - 4);
       const p0 = spinePoint(def.y + bend);
       const p1 = spinePoint(def.y);
       p2 = left ? { x: p1.x - 62, y: def.y } : { x: p1.x + bend * 1.4 + 20, y: def.y };
@@ -128,7 +128,11 @@
     let nextId = 1;
     const makeVehicle = type => ({ id: nextId++, type });
 
-    for (const type of level.shed) byId.get('SHED').cars.push(makeVehicle(type));
+    const sheds = tracks.filter(t => t.kind === 'shed' && !t.locked);
+    const isShed = t => t.kind === 'shed';
+    // The first shed road with a free space (engines wait here for servicing).
+    const freeShed = () => sheds.find(t => t.cars.length < t.cap) || null;
+    for (const type of level.shed) (freeShed() || sheds[0]).cars.push(makeVehicle(type));
     for (const [id, list] of Object.entries(level.initial)) {
       for (const type of list) byId.get(id).cars.push(makeVehicle(type));
     }
@@ -137,7 +141,7 @@
       .map((d, i) => ({ ...d, id: i + 1, status: 'waiting', progress: 0, stars: 0, lateBy: 0 }))
       .sort((a, b) => a.at - b.at);
     const arrivals = level.arrivals
-      .map((a, i) => ({ ...a, id: i + 1, track: a.track || 'S5', status: 'coming' }))
+      .map((a, i) => ({ ...a, id: i + 1, track: a.track || 'S3', status: 'coming' }))
       .sort((a, b) => a.at - b.at);
 
     const unloadings = []; // trains standing while their passengers get off
@@ -280,9 +284,9 @@
     G.pilot = pilot;
 
     // Pip starts the day parked in the engine shed road.
-    const startShed = byId.get('SHED');
-    if (!startShed.locked) {
-      pilot.track = 'SHED';
+    const startShed = sheds[0];
+    if (startShed) {
+      pilot.track = startShed.id;
       pilot.u = slotU(startShed, 0, startShed.cars.length) - SP;
     }
 
@@ -351,7 +355,7 @@
 
     // Pip must never be left on a road a train is arriving on, or on the lead by the signal box, when a
     // train is due: it parks on the engine shed road (or another open road) and stays out of the way.
-    const PARK_ORDER = ['SHED', 'S1', 'S2', 'S3', 'S4', 'S5', 'G', 'P2', 'P1'];
+    const PARK_ORDER = ['SHED', 'SHED2', 'S1', 'S2', 'S3', 'G', 'P2', 'P1'];
     function parkingRoad(exclude) {
       const open = id => {
         const t = byId.get(id);
@@ -408,7 +412,7 @@
         dir: -1,
         steps: [
           { go: fromId, to: uOut, onStart: detach },
-          { go: toId, to: uFinal, onEnd: job => { for (const v of job.cut) v.arrived = false; attach(job); if (toId === 'SHED') emit('servicing'); } }
+          { go: toId, to: uFinal, onEnd: job => { for (const v of job.cut) v.arrived = false; attach(job); if (isShed(byId.get(toId))) emit('servicing'); } }
         ]
       });
     }
@@ -481,9 +485,8 @@
 
     // An arrived engine that has been uncovered (its coaches are gone) drives itself to the shed.
     function readyLoco() {
-      const shed = byId.get('SHED');
-      if (shed.locked || shed.cars.length >= shed.cap) return null;
-      return tracks.find(t => t.id !== 'SHED' && t.cars.length > 0 && t.cars[0].arrived === true && !isUnloading(t.id)) || null;
+      if (!freeShed()) return null;
+      return tracks.find(t => !isShed(t) && t.cars.length > 0 && t.cars[0].arrived === true && !isUnloading(t.id)) || null;
     }
 
     // The next train due in, if the road it needs is clear. Trains arrive in timetable order.
@@ -511,13 +514,13 @@
     // (In the shed, engines are picked individually, so only the chosen engine counts.)
     G.cutNeedsService = (fromId, k) => {
       const cars = byId.get(fromId).cars;
-      return fromId === 'SHED' ? needsService(cars[k - 1]) : cars.slice(0, k).some(needsService);
+      return isShed(byId.get(fromId)) ? needsService(cars[k - 1]) : cars.slice(0, k).some(needsService);
     };
 
     G.validTargets = (fromId, k) => {
       const from = byId.get(fromId);
       let cut = from.cars.slice(0, k);
-      if (fromId === 'SHED' && from.cars[k - 1] && !needsService(from.cars[k - 1])) {
+      if (isShed(from) && from.cars[k - 1] && !needsService(from.cars[k - 1])) {
         cut = [from.cars[k - 1]];
         k = 1;
       }
@@ -525,7 +528,7 @@
       return tracks
         .filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
         // Worn engines may only go to the shed (and only by themselves).
-        .filter(t => !worn || (t.id === 'SHED' && cut.every(v => isLoco(v.type))))
+        .filter(t => !worn || (isShed(t) && cut.every(v => isLoco(v.type))))
         .map(t => t.id);
     };
 
@@ -536,7 +539,7 @@
       if (!from || from.locked || isUnloading(fromId) || idx < 0 || idx >= from.cars.length) return false;
       if (!G.validTargets(fromId, k).includes(toId)) return false;
       snapshot();
-      if (fromId === 'SHED' && !needsService(from.cars[idx])) {
+      if (isShed(from) && !needsService(from.cars[idx])) {
         // Engines in the shed can shuffle past each other: only the chosen engine goes.
         from.cars.unshift(...from.cars.splice(idx, 1));
         k = 1;
@@ -583,7 +586,7 @@
           const t = byId.get(id);
           return t && !t.locked && !exclude.includes(id) && !isUnloading(id) && !activeDeparture(id) && t.cars.length + k <= t.cap;
         };
-        const id = ['S1', 'S2', 'S3', 'S4', 'S5', 'G', 'P2', 'P1'].find(ok);
+        const id = ['S1', 'S2', 'S3', 'G', 'P2', 'P1'].find(ok);
         return id ? byId.get(id) : null;
       };
       const moveOut = (track, k, why) => {
@@ -625,10 +628,10 @@
         if (t.id === track.id || t.locked || isUnloading(t.id)) continue;
         t.cars.forEach((v, idx) => {
           const match = need === 'loco' ? isLoco(v.type) : v.type === need;
-          const worn = t.id === 'SHED' ? needsService(v) : t.cars.slice(0, idx + 1).some(needsService);
+          const worn = isShed(t) ? needsService(v) : t.cars.slice(0, idx + 1).some(needsService);
           if (!match || worn) return;
-          const carry = t.id === 'SHED' ? 0 : idx;
-          const score = carry * 10 + (t.id === 'SHED' ? 0 : 1);
+          const carry = isShed(t) ? 0 : idx;
+          const score = carry * 10 + (isShed(t) ? 0 : 1);
           if (!best || score < best.score) best = { t, idx, carry, score };
         });
       }
@@ -660,7 +663,7 @@
     G.pilotPose = () => {
       const job = G.job;
       if (!job || job.hidePilot) {
-        const p = pointAt(byId.get(pilot.track || 'SHED'), pilot.u);
+        const p = pointAt(byId.get(pilot.track || sheds[0].id), pilot.u);
         return { ...p, flip: pilot.flip, moving: false, work: false, parked: pilot.track !== null };
       }
       const p = pointAt(byId.get(job.track), job.pilotU);
@@ -775,14 +778,14 @@
         // A train is arriving: Pip gets out of the way and parks on another road.
         const parking = parkingRoad(incoming.track);
         if (parking) startPark(parking);
-      } else if (!G.job && loco && (pilot.track === loco.id || pilot.track === 'SHED')) {
+      } else if (!G.job && loco && (pilot.track === loco.id || (pilot.track !== null && isShed(byId.get(pilot.track))))) {
         // The engine is about to run into the shed, so Pip heads home.
         startHome();
       }
       if (!G.job) {
         if (loco) {
           undoState = null;
-          startEngineRun(loco.id, 'SHED');
+          startEngineRun(loco.id, freeShed().id);
         } else if (incoming) startArrival(incoming);
       }
       const held = G.waitingArrival();
@@ -790,20 +793,20 @@
         held.held = true;
         emit('held', { arrival: held });
       }
-      const shedOpen = !byId.get('SHED').locked && byId.get('SHED').cars.length < byId.get('SHED').cap;
+      const shedOpen = freeShed() !== null;
       if (G.job || pilot.track !== null) idle = 0;
       else if (shedOpen && !readyLoco() && !arrivalReady()) {
         idle += dt;
         if (idle >= IDLE_SECONDS) {
           idle = 0;
           const dest = parkingRoad();
-          if (dest && dest.id === 'SHED') startPark(dest);
+          if (dest && isShed(dest)) startPark(dest);
         }
       }
       if (G.job) stepJob(dt);
       updateUnloading(dt);
       // Engines in the shed are serviced, one clock minute at a time.
-      for (const v of byId.get('SHED').cars) {
+      for (const v of sheds.flatMap(t => t.cars)) {
         if (!needsService(v)) continue;
         v.service -= dt / SECONDS_PER_MINUTE;
         if (v.service <= 0) {
