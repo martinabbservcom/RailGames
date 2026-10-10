@@ -501,11 +501,19 @@
     G.needsService = needsService;
 
     // True if the first k vehicles of a road include an engine that still needs servicing.
-    G.cutNeedsService = (fromId, k) => byId.get(fromId).cars.slice(0, k).some(needsService);
+    // (In the shed, engines are picked individually, so only the chosen engine counts.)
+    G.cutNeedsService = (fromId, k) => {
+      const cars = byId.get(fromId).cars;
+      return fromId === 'SHED' ? needsService(cars[k - 1]) : cars.slice(0, k).some(needsService);
+    };
 
     G.validTargets = (fromId, k) => {
       const from = byId.get(fromId);
-      const cut = from.cars.slice(0, k);
+      let cut = from.cars.slice(0, k);
+      if (fromId === 'SHED' && from.cars[k - 1] && !needsService(from.cars[k - 1])) {
+        cut = [from.cars[k - 1]];
+        k = 1;
+      }
       const worn = cut.some(needsService);
       return tracks
         .filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
@@ -517,10 +525,15 @@
     G.startMove = (fromId, idx, toId) => {
       if (G.busy() || G.finished) return false;
       const from = byId.get(fromId);
-      const k = idx + 1;
+      let k = idx + 1;
       if (!from || from.locked || isUnloading(fromId) || idx < 0 || idx >= from.cars.length) return false;
       if (!G.validTargets(fromId, k).includes(toId)) return false;
       snapshot();
+      if (fromId === 'SHED' && !needsService(from.cars[idx])) {
+        // Engines in the shed can shuffle past each other: only the chosen engine goes.
+        from.cars.unshift(...from.cars.splice(idx, 1));
+        k = 1;
+      }
       // Engines have their own power, so they don't need Pip to shunt them.
       if (from.cars.slice(0, k).every(v => isLoco(v.type))) {
         if (pilot.track === fromId || pilot.track === toId) {
@@ -605,18 +618,20 @@
         if (t.id === track.id || t.locked || isUnloading(t.id)) continue;
         t.cars.forEach((v, idx) => {
           const match = need === 'loco' ? isLoco(v.type) : v.type === need;
-          if (!match || t.cars.slice(0, idx + 1).some(needsService)) return;
-          const score = idx * 10 + (t.id === 'SHED' ? 0 : 1);
-          if (!best || score < best.score) best = { t, idx, score };
+          const worn = t.id === 'SHED' ? needsService(v) : t.cars.slice(0, idx + 1).some(needsService);
+          if (!match || worn) return;
+          const carry = t.id === 'SHED' ? 0 : idx;
+          const score = carry * 10 + (t.id === 'SHED' ? 0 : 1);
+          if (!best || score < best.score) best = { t, idx, carry, score };
         });
       }
       if (!best) {
         const servicing = need === 'loco' && tracks.some(t => t.cars.some(needsService));
         return { text: servicing ? `${dep.name} needs an engine, but they are all being serviced in the shed. Wait a moment.` : `${dep.name} needs ${name(need)}, but there isn't one in the yard yet. Wait for the next train.` };
       }
-      if (best.idx > 0) {
+      if (best.carry > 0) {
         const t = best.t;
-        const k = best.idx;
+        const k = best.carry;
         const to = dump(k, t.id, track.id);
         if (!to) return { text: 'Free up some space on a siding first.' };
         return {
@@ -629,7 +644,7 @@
       return {
         text: `${dep.name} needs ${name(need)} next. Move it from ${best.t.name} to ${track.name}.`,
         track: best.t.id,
-        idx: 0,
+        idx: best.idx,
         to: track.id
       };
     };
