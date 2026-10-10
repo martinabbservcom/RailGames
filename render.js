@@ -649,24 +649,6 @@
       if (!track.through) bufferStop(ctx, track.side === 'left' ? track.xEnd - 10 : track.xEnd + 2, track.y);
     }
 
-    // A little ground frame (points lever) beside each set of points.
-    for (const track of game.tracks) {
-      const b = game.pointAt(track, track.uBranch);
-      const bd = game.pointAt(track, track.uBranch - 4);
-      const l = Math.hypot(b.x - bd.x, b.y - bd.y) || 1;
-      const side = track.side === 'left' ? -1 : 1;
-      const x = b.x + side * ((b.y - bd.y) / l) * 24;
-      const y = b.y - side * ((b.x - bd.x) / l) * 24;
-      box(ctx, x - 5, y - 3, 10, 7, 2, '#5a6378', 1.6);
-      ctx.beginPath();
-      ctx.moveTo(x, y - 3);
-      ctx.lineTo(x - 3, y - 13);
-      ctx.lineWidth = 2.4;
-      ctx.strokeStyle = '#e5484d';
-      ctx.stroke();
-      circle(ctx, x - 3, y - 14, 2.6, '#ffd23f', 1.2);
-    }
-
     // Island platform.
     box(ctx, 500, 168, 580, 50, 8, '#e8dfc6');
     ctx.fillStyle = '#ffd93d';

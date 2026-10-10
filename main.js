@@ -214,6 +214,8 @@
       if (dep.status === 'done') chip = starText(dep.stars);
       if (dep.status === 'cancelled') chip = 'Missed';
       card.className = `card dep status-${dep.status}${game.activeDeparture(dep.track) === dep ? ' active' : ''}`;
+      // Trains that have left or been missed drop off the list, so the top is always what happens next.
+      card.hidden = dep.status === 'done' || dep.status === 'cancelled';
       card.querySelector('.chip').textContent = chip;
       if (!next && dep.status !== 'done' && dep.status !== 'cancelled') next = card;
     }
@@ -227,6 +229,7 @@
       if (arrival.status === 'unloading') chip = 'Unloading…';
       if (arrival.status === 'arrived') chip = 'Here ✓';
       card.className = `card arr status-${arrival.status}`;
+      card.hidden = arrival.status === 'arrived';
       card.querySelector('.chip').textContent = chip;
       if (arrival.status === 'coming' || arrival.status === 'arriving' || arrival.status === 'unloading') {
         if (!next || Number(card.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING)) next = card;
