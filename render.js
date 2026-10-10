@@ -832,9 +832,11 @@
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
         lines.push({ text: `${dep.name}  ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, size: 10, color: '#d9486a' });
-        const note = G.formationHint(dep, track);
+        const arrived = track.cars.length > 0 && track.cars[track.cars.length - 1].arrived;
+        const note = arrived || G.isUnloading(track.id) ? '' : G.formationHint(dep, track);
         if (note) lines.push({ text: note, size: 10, color: note === 'Perfect!' ? '#1f9d5b' : '#b5651d' });
       }
+      if (G.isUnloading(track.id)) lines.push({ text: 'Passengers getting off…', size: 10, color: '#1b6fd1' });
       let w = 0;
       for (const line of lines) {
         ctx.font = `700 ${line.size}px ${FONT}`;
@@ -908,31 +910,33 @@
       ctx.stroke();
     }
 
-    // Reception signal beside the signal box: red until the road is empty, green while a train comes in.
-    function receptionSignal() {
-      const go = G.receptionClear() || (G.job && G.job.kind === 'arrival');
-      const x = 92;
-      const y = 668;
+    // A little signal on a post. `state` is 'green', 'amber' or 'red'.
+    function signalPost(x, y, state) {
       ctx.fillStyle = INK;
       ctx.fillRect(x - 1.5, y - 30, 3, 36);
       box(ctx, x - 6, y - 40, 12, 20, 5, '#39435c', 2);
-      circle(ctx, x, y - 34, 3.6, go ? '#3a4a3a' : '#ff5d5d');
-      circle(ctx, x, y - 25, 3.6, go ? '#5dff8a' : '#4a3a3a');
+      circle(ctx, x, y - 34, 3.6, state === 'green' ? '#3a4a3a' : state === 'amber' ? '#ffb938' : '#ff5d5d');
+      circle(ctx, x, y - 25, 3.6, state === 'green' ? '#5dff8a' : '#4a3a3a');
+    }
+
+    // Entry signals: one by the signal box for the reception road, and one at the throat of each
+    // platform that a train arrives on. Red until the road is empty, amber when a train is due soon.
+    function entrySignals() {
+      signalPost(92, 668, G.entrySignal('R'));
+      const used = new Set(G.arrivals.map(a => a.track));
+      for (const track of G.tracks) {
+        if (track.id === 'R' || track.locked || !used.has(track.id)) continue;
+        signalPost(track.straightX - 44, track.y - 16, G.entrySignal(track.id));
+      }
     }
 
     function signals() {
-      receptionSignal();
+      entrySignals();
       for (const track of G.tracks) {
         if (!track.through) continue;
         const dep = G.activeDeparture(track.id);
-        const go = dep && dep.status === 'ready';
-        const x = track.xEnd + 38;
-        const y = track.y - 4;
-        ctx.fillStyle = INK;
-        ctx.fillRect(x - 1.5, y - 30, 3, 36);
-        box(ctx, x - 6, y - 40, 12, 20, 5, '#39435c', 2);
-        circle(ctx, x, y - 34, 3.6, go ? '#3a4a3a' : '#ff5d5d');
-        circle(ctx, x, y - 25, 3.6, go ? '#5dff8a' : '#4a3a3a');
+        const state = dep && dep.status === 'ready' ? 'green' : dep && dep.status === 'boarding' ? 'amber' : 'red';
+        signalPost(track.xEnd + 38, track.y - 4, state);
       }
     }
 
@@ -991,6 +995,30 @@
       }
     }
 
+    // Passengers stepping off an arriving train and walking away down the platform.
+    function alighting(time, poses) {
+      for (const u of G.unloadings) {
+        if (u.track !== 'P1' && u.track !== 'P2') continue;
+        const doors = poses.filter(p => p.track === u.track && Y.TYPES[p.v.type].kind === 'coach');
+        if (!doors.length) continue;
+        const rand = mulberry(u.arrival.id * 53 + 7);
+        const count = Math.min(14, 4 + doors.length * 2);
+        const yDoor = u.track === 'P1' ? 176 : 210;
+        const yWalk = u.track === 'P1' ? 196 : 190;
+        for (let i = 0; i < count; i++) {
+          const door = doors[i % doors.length];
+          const start = (i / count) * 0.7;
+          const p = Math.max(0, Math.min(1, (u.progress - start) / 0.3));
+          if (p <= 0) continue;
+          const t = p * p * (3 - 2 * p);
+          const wx = door.x + (rand() - 0.5) * 120 - 60;
+          const wy = yWalk + rand() * 12 - 6;
+          const color = PEOPLE[Math.floor(rand() * PEOPLE.length)];
+          drawPerson(ctx, door.x + (wx - door.x) * t, yDoor + (wy - yDoor) * t, color, Math.sin(time / 80 + i) * 2);
+        }
+      }
+    }
+
     function puff(x, y, big) {
       particles.push({
         x, y, vx: 14 + Math.random() * 10, vy: -22 - Math.random() * 14,
@@ -1043,7 +1071,7 @@
       const waiting = G.waitingArrival();
       const next = G.arrivals.find(a => a.status === 'coming');
       let text = '';
-      if (waiting) text = 'A train is waiting! Clear some space on the Reception road.';
+      if (waiting) text = `A train is waiting at the signal! Clear ${G.byId.get(waiting.track).name}.`;
       else if (next && !G.job) {
         const left = next.at + G.level.start - G.minute;
         if (left > 0 && left < 3) text = 'A train is coming in soon…';
@@ -1135,6 +1163,7 @@
 
       const poses = G.vehiclePoses();
       crowd(time, poses);
+      alighting(time, poses);
       for (const track of G.tracks) {
         if (ui.targets.includes(track.id)) targetGlow(track, time);
         else if (ui.hoverTrack === track.id && !track.locked && ui.selected) {

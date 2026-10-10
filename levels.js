@@ -22,8 +22,10 @@
   // with 'loco' (any engine). Track lists in the game run from the yard entrance
   // (left) to the far end (right), so the front of a train is the last vehicle.
   //
-  // `arrivals[].cars` are listed from the yard entrance end once the train has been
-  // pulled into the reception road; the engine leads, so it ends up at the far (buffer) end. Times are minutes after the level starts.
+  // `arrivals[].track` is the road the train comes in on: 'R' (reception, the default) or a
+  // platform. `cars` are listed from the yard entrance end once the train has been pulled in;
+  // the engine leads, so it ends up at the far end. The road must be empty or the train waits
+  // at the signal. Times are minutes after the level starts.
   Y.LEVELS = [
     {
       id: 1,
@@ -34,8 +36,8 @@
       shed: ['steam'],
       initial: {},
       arrivals: [
-        { at: 0, from: 'Hillbury', loco: 'diesel', cars: ['guard', 'coach', 'first', 'coach'] },
-        { at: 9, from: 'Marshford', loco: 'diesel', cars: ['coach', 'guard', 'coach'] }
+        { at: 0, from: 'Hillbury', track: 'P1', loco: 'diesel', cars: ['guard', 'coach', 'first', 'coach'] },
+        { at: 9, from: 'Marshford', track: 'R', loco: 'diesel', cars: ['coach', 'guard', 'coach'] }
       ],
       departures: [
         { at: 22, track: 'P1', name: 'Seaside Express', dest: 'Sandy Bay', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
@@ -51,9 +53,9 @@
       shed: ['diesel', 'steam'],
       initial: {},
       arrivals: [
-        { at: 0, from: 'Hillbury', loco: 'diesel', cars: ['coal', 'coach', 'brake', 'guard', 'coach'] },
-        { at: 7, from: 'Marshford', loco: 'steam', cars: ['box', 'tank', 'coach', 'buffet', 'coal'] },
-        { at: 16, from: 'Dockside', loco: 'diesel', cars: ['first', 'logs', 'box', 'guard', 'brake'] }
+        { at: 0, from: 'Hillbury', track: 'P2', loco: 'diesel', cars: ['coal', 'coach', 'brake', 'guard', 'coach'] },
+        { at: 7, from: 'Marshford', track: 'R', loco: 'steam', cars: ['box', 'tank', 'coach', 'buffet', 'coal'] },
+        { at: 16, from: 'Dockside', track: 'P2', loco: 'diesel', cars: ['first', 'logs', 'box', 'guard', 'brake'] }
       ],
       departures: [
         { at: 20, track: 'P1', name: 'Market Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] },
@@ -74,10 +76,10 @@
         S2: ['logs', 'box', 'coach']
       },
       arrivals: [
-        { at: 0, from: 'Hillbury', loco: 'diesel', cars: ['buffet', 'coach', 'guard', 'coach'] },
-        { at: 5, from: 'Dockside', loco: 'steam', cars: ['brake', 'logs', 'first', 'coach', 'coach'] },
-        { at: 12, from: 'Marshford', loco: 'diesel', cars: ['guard', 'buffet', 'box', 'coach'] },
-        { at: 22, from: 'Castle Hill', loco: 'steam', cars: ['first', 'logs', 'coach', 'brake', 'guard', 'buffet'] }
+        { at: 0, from: 'Hillbury', track: 'P2', loco: 'diesel', cars: ['buffet', 'coach', 'guard', 'coach'] },
+        { at: 5, from: 'Dockside', track: 'R', loco: 'steam', cars: ['brake', 'logs', 'first', 'coach', 'coach'] },
+        { at: 12, from: 'Marshford', track: 'P2', loco: 'diesel', cars: ['guard', 'buffet', 'box', 'coach'] },
+        { at: 22, from: 'Castle Hill', track: 'P1', loco: 'steam', cars: ['first', 'logs', 'coach', 'brake', 'guard', 'buffet'] }
       ],
       departures: [
         { at: 16, track: 'P1', name: 'Early Commuter', dest: 'Cityville', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
@@ -86,6 +88,30 @@
         { at: 58, track: 'G', name: 'Timber Express', dest: 'Dockside', spec: ['loco', 'logs', 'logs', 'logs', 'brake'] },
         { at: 72, track: 'P1', name: 'Café Cruiser', dest: 'Sandy Bay', spec: ['loco', 'buffet', 'coach', 'coach', 'guard'] },
         { at: 88, track: 'P2', name: 'Golden Jubilee', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] }
+      ]
+    },
+    {
+      id: 4,
+      title: 'Rush Hour',
+      blurb: 'Trains pour into the platforms. Clear them quickly, but keep your own trains off the platforms until they are due!',
+      start: 8 * 60,
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'R'],
+      shed: ['diesel', 'steam'],
+      initial: {
+        S3: ['coal', 'brake']
+      },
+      arrivals: [
+        { at: 0, from: 'Hillbury', track: 'P1', loco: 'diesel', cars: ['coach', 'guard', 'coach', 'coach'] },
+        { at: 4, from: 'Marshford', track: 'P2', loco: 'steam', cars: ['first', 'buffet', 'coach', 'guard'] },
+        { at: 10, from: 'Dockside', track: 'R', loco: 'diesel', cars: ['box', 'box', 'logs', 'brake'] },
+        { at: 20, from: 'Lakeside', track: 'P2', loco: 'steam', cars: ['coach', 'coach', 'guard', 'first'] },
+        { at: 30, from: 'Castle Hill', track: 'P1', loco: 'diesel', cars: ['coach', 'buffet', 'coach', 'guard'] }
+      ],
+      departures: [
+        { at: 18, track: 'P1', name: 'Morning Express', dest: 'Cityville', spec: ['loco', 'coach', 'coach', 'guard'] },
+        { at: 34, track: 'G', name: 'Brick Train', dest: 'Dockside', spec: ['loco', 'box', 'box', 'brake'] },
+        { at: 46, track: 'P2', name: 'Lake Flyer', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'guard'] },
+        { at: 62, track: 'P1', name: 'Evening Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] }
       ]
     }
   ];

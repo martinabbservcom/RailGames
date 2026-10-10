@@ -15,6 +15,7 @@
   const SECONDS_PER_MINUTE = 8; // real seconds per game minute at 1x
   const PILOT_SPEED = 430; // units per second
   const BOARD_SECONDS = 4; // real seconds to board / load at 1x
+  const UNLOAD_SECONDS = 9; // real seconds for passengers to get off an arriving train at 1x
   const CANCEL_AFTER = 6; // minutes late before a train is cancelled
   const STAR_LIMITS = [0.4, 2, 5]; // minutes late for 3, 2 and 1 star
 
@@ -128,11 +129,15 @@
       .map((d, i) => ({ ...d, id: i + 1, status: 'waiting', progress: 0, stars: 0, lateBy: 0 }))
       .sort((a, b) => a.at - b.at);
     const arrivals = level.arrivals
-      .map((a, i) => ({ ...a, id: i + 1, status: 'coming' }))
+      .map((a, i) => ({ ...a, id: i + 1, track: a.track || 'R', status: 'coming' }))
       .sort((a, b) => a.at - b.at);
+
+    const unloadings = []; // trains standing while their passengers get off
+    let undoState = null;
 
     const G = {
       level,
+      unloadings,
       W,
       H,
       SP,
@@ -245,6 +250,8 @@
 
     function attach(job) {
       const to = byId.get(job.to);
+      // An engine that has just arrived stays 'arrived' (and will head for the shed) until it is moved on.
+      if (job.kind !== 'arrival') for (const v of job.cut) v.arrived = false;
       to.cars.unshift(...job.cut);
       job.cut = [];
     }
@@ -335,10 +342,14 @@
 
     // Pip must never be left on the reception road, or on the lead by the signal box, when a
     // train is due: it parks on the engine shed road (or another open road) and stays out of the way.
-    function parkingRoad() {
-      const open = t => !t.locked && t.id !== 'R' && t.cars.length < t.cap;
-      const shed = byId.get('SHED');
-      return open(shed) ? shed : tracks.find(open) || null;
+    const PARK_ORDER = ['SHED', 'S1', 'S2', 'S3', 'G', 'R', 'P2', 'P1'];
+    function parkingRoad(exclude) {
+      const open = id => {
+        const t = byId.get(id);
+        return t && !t.locked && t.id !== exclude && t.cars.length < t.cap && !isUnloading(t.id);
+      };
+      const id = PARK_ORDER.find(open);
+      return id ? byId.get(id) : null;
     }
 
     function startPark(dest) {
@@ -394,69 +405,104 @@
     }
 
     function startArrival(arrival) {
-      const rec = byId.get('R');
-      // The engine leads, pulling the train in: it ends up at the buffer end of the road.
+      const rec = byId.get(arrival.track);
+      // The engine leads, pulling the train in: it ends up at the far end of the road.
       const loco = makeVehicle(arrival.loco);
       loco.arrived = true;
       const cut = [...arrival.cars.map(makeVehicle), loco];
       const k = cut.length;
       const uFinal = rec.uEnd - SP / 2 - (rec.cars.length + k) * SP;
       arrival.status = 'arriving';
+      undoState = null;
       startJob({
         kind: 'arrival',
         from: null,
-        to: 'R',
+        to: rec.id,
         k,
         hidePilot: true,
         cut,
         pilotU: -(L0.x + 80 + k * SP),
-        track: 'R',
+        track: rec.id,
         dir: 1,
-        steps: [{ go: 'R', to: uFinal, onEnd: attach }],
+        steps: [{ go: rec.id, to: uFinal, onEnd: attach }],
         onDone: () => {
-          arrival.status = 'arrived';
-          emit('arrived', { arrival });
+          // Give the passengers a little time to get off before the train can be moved.
+          arrival.status = 'unloading';
+          unloadings.push({ arrival, track: rec.id, t: 0, progress: 0 });
+          emit('unloading', { arrival });
         }
       });
       emit('arriving', { arrival });
     }
 
-    // ---- Public queries ---------------------------------------------------------
-    G.busy = () => !!G.job || locoReady() || arrivalReady() !== null;
+    function isUnloading(trackId) {
+      return unloadings.some(u => u.track === trackId);
+    }
+    G.isUnloading = isUnloading;
 
-    // The signal clears only when the reception road is empty (the last engine has gone to the shed).
-    G.receptionClear = () => byId.get('R').cars.length === 0;
-
-    // An arrived engine that has been uncovered (the coaches are gone) drives itself to the shed.
-    function locoReady() {
-      const rec = byId.get('R');
-      const shed = byId.get('SHED');
-      return rec.cars.length > 0 && rec.cars[0].arrived === true && shed.cars.length < shed.cap;
+    function updateUnloading(dt) {
+      for (let i = unloadings.length - 1; i >= 0; i--) {
+        const u = unloadings[i];
+        u.t += dt;
+        u.progress = Math.min(1, u.t / UNLOAD_SECONDS);
+        if (u.progress >= 1) {
+          unloadings.splice(i, 1);
+          u.arrival.status = 'arrived';
+          emit('arrived', { arrival: u.arrival, track: u.track });
+        }
+      }
     }
 
+    // ---- Public queries ---------------------------------------------------------
+    G.busy = () => !!G.job || readyLoco() !== null || arrivalReady() !== null;
+
+    // Signal for trains coming in: 'green' while one is entering or may enter, 'amber' when one is
+    // due soon and the road is clear, otherwise 'red'.
+    G.entrySignal = trackId => {
+      const track = byId.get(trackId);
+      if (G.job && G.job.kind === 'arrival' && G.job.to === trackId) return 'green';
+      const nextAny = arrivals.find(a => a.status === 'coming');
+      if (!nextAny || nextAny.track !== trackId) return 'red';
+      const clear = track.cars.length === 0 && !G.leaving.some(l => l.track === trackId);
+      const due = nextAny.at + level.start - G.minute;
+      if (!clear) return 'red';
+      return due <= 0 ? 'green' : due < 3 ? 'amber' : 'red';
+    };
+
+    // An arrived engine that has been uncovered (its coaches are gone) drives itself to the shed.
+    function readyLoco() {
+      const shed = byId.get('SHED');
+      if (shed.locked || shed.cars.length >= shed.cap) return null;
+      return tracks.find(t => t.id !== 'SHED' && t.cars.length > 0 && t.cars[0].arrived === true && !isUnloading(t.id)) || null;
+    }
+
+    // The next train due in, if the road it needs is clear. Trains arrive in timetable order.
     function arrivalReady() {
-      const rec = byId.get('R');
       for (const arrival of arrivals) {
         if (arrival.status !== 'coming' || arrival.at + level.start > G.minute) continue;
-        return rec.cars.length === 0 && arrival.cars.length + 1 <= rec.cap ? arrival : null;
+        const track = byId.get(arrival.track);
+        const clear = !track.locked && track.cars.length === 0 && !G.leaving.some(l => l.track === track.id);
+        return clear && arrival.cars.length + 1 <= track.cap ? arrival : null;
       }
       return null;
     }
 
+    // A train that is due but held at the signal because its road is not clear.
     G.waitingArrival = () => {
       const due = arrivals.find(a => a.status === 'coming' && a.at + level.start <= G.minute);
       return due && !G.job && arrivalReady() === null ? due : null;
     };
 
     G.validTargets = (fromId, k) =>
-      tracks.filter(t => !t.locked && t.id !== fromId && t.cars.length + k <= t.cap).map(t => t.id);
+      tracks.filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap).map(t => t.id);
 
     G.startMove = (fromId, idx, toId) => {
       if (G.busy() || G.finished) return false;
       const from = byId.get(fromId);
       const k = idx + 1;
-      if (!from || from.locked || idx < 0 || idx >= from.cars.length) return false;
+      if (!from || from.locked || isUnloading(fromId) || idx < 0 || idx >= from.cars.length) return false;
       if (!G.validTargets(fromId, k).includes(toId)) return false;
+      snapshot();
       // Engines have their own power, so they don't need Pip to shunt them.
       if (from.cars.slice(0, k).every(v => isLoco(v.type))) {
         if (pilot.track === fromId || pilot.track === toId) {
@@ -469,6 +515,102 @@
       }
       startPlayerMove(fromId, toId, k);
       return true;
+    };
+
+    // ---- Undo ----------------------------------------------------------------------
+    // The last move you made can be taken back until something else happens in the yard
+    // (a train arrives or departs, or an engine drives off on its own).
+    function snapshot() {
+      undoState = { cars: new Map(tracks.map(t => [t.id, t.cars.slice()])), pilot: { ...pilot } };
+    }
+
+    G.canUndo = () => undoState !== null && !G.busy() && !G.finished;
+
+    G.undo = () => {
+      if (!G.canUndo()) return false;
+      for (const t of tracks) t.cars.splice(0, t.cars.length, ...undoState.cars.get(t.id));
+      Object.assign(pilot, undoState.pilot);
+      undoState = null;
+      emit('undo');
+      return true;
+    };
+
+    // ---- Hints ---------------------------------------------------------------------
+    // Suggests one sensible next move: { text, track, idx, to } (track/idx/to are absent for advice only).
+    G.hint = () => {
+      if (G.finished) return null;
+      const name = type => (type === 'loco' ? 'an engine' : `a ${Y.TYPES[type].name.toLowerCase()}`);
+      const dump = (k, ...exclude) => {
+        const ok = id => {
+          const t = byId.get(id);
+          return t && !t.locked && !exclude.includes(id) && !isUnloading(id) && !activeDeparture(id) && t.cars.length + k <= t.cap;
+        };
+        const id = ['S1', 'S2', 'S3', 'R', 'G', 'P2', 'P1'].find(ok);
+        return id ? byId.get(id) : null;
+      };
+      const moveOut = (track, k, why) => {
+        const to = dump(k, track.id);
+        if (!to) return { text: `${why} There is no room to move it, so free up a siding first.` };
+        const what = k === 1 ? `the ${Y.TYPES[track.cars[0].type].name.toLowerCase()}` : `the first ${k} vehicles`;
+        return { text: `${why} Move ${what} from ${track.name} to ${to.name}.`, track: track.id, idx: k - 1, to: to.id };
+      };
+
+      // 1. A train that has arrived and been unloaded should be moved out of the way.
+      for (const t of tracks) {
+        const n = t.cars.length;
+        if (n > 1 && t.cars[n - 1].arrived && !isUnloading(t.id) && !t.locked) {
+          return moveOut(t, n - 1, 'This train has arrived and is unloaded.');
+        }
+      }
+      // 2. Work on the next train to leave.
+      const dep = departures
+        .filter(d => (d.status === 'waiting' || d.status === 'boarding') && activeDeparture(d.track) === d)
+        .sort((a, b) => a.at - b.at)[0];
+      if (!dep) {
+        const ready = departures.find(d => d.status === 'ready');
+        return ready ? { text: `${ready.name} is ready and leaves at its time. Keep platforms free for arriving trains.` } : null;
+      }
+      const track = byId.get(dep.track);
+      if (isUnloading(track.id)) return { text: `Passengers are still getting off at ${track.name}. One moment!` };
+      const front = [...track.cars].reverse();
+      const fits = i => (dep.spec[i] === 'loco' ? isLoco(front[i].type) : front[i].type === dep.spec[i]);
+      for (let i = 0; i < Math.min(front.length, dep.spec.length); i++) {
+        if (!fits(i)) return moveOut(track, front.length - i, `Vehicle ${i + 1} on ${track.name} is wrong.`);
+      }
+      if (front.length > dep.spec.length) {
+        return moveOut(track, front.length - dep.spec.length, `${track.name} has too many vehicles.`);
+      }
+      if (front.length === dep.spec.length) return { text: `${dep.name} is built correctly. It leaves at its time.` };
+      const need = dep.spec[front.length];
+      let best = null;
+      for (const t of tracks) {
+        if (t.id === track.id || t.locked || isUnloading(t.id)) continue;
+        t.cars.forEach((v, idx) => {
+          const match = need === 'loco' ? isLoco(v.type) : v.type === need;
+          if (!match) return;
+          const score = idx * 10 + (t.id === 'SHED' ? 0 : 1);
+          if (!best || score < best.score) best = { t, idx, score };
+        });
+      }
+      if (!best) return { text: `${dep.name} needs ${name(need)}, but there isn't one in the yard yet. Wait for the next train.` };
+      if (best.idx > 0) {
+        const t = best.t;
+        const k = best.idx;
+        const to = dump(k, t.id, track.id);
+        if (!to) return { text: 'Free up some space on a siding first.' };
+        return {
+          text: `${dep.name} needs ${name(need)} from ${t.name}, but ${k === 1 ? 'a vehicle is' : `${k} vehicles are`} in front of it. Move ${k === 1 ? 'it' : 'them'} to ${to.name} first.`,
+          track: t.id,
+          idx: k - 1,
+          to: to.id
+        };
+      }
+      return {
+        text: `${dep.name} needs ${name(need)} next. Move it from ${best.t.name} to ${track.name}.`,
+        track: best.t.id,
+        idx: 0,
+        to: track.id
+      };
     };
 
     // ---- Poses for drawing -------------------------------------------------------
@@ -561,6 +703,7 @@
       dep.lateBy = late;
       dep.stars = late <= STAR_LIMITS[0] ? 3 : late <= STAR_LIMITS[1] ? 2 : 1;
       dep.status = 'done';
+      undoState = null;
       G.stars += dep.stars;
       const cars = track.cars.splice(0);
       G.leaving.push({ track: track.id, cars, base: slotU(track, 0, cars.length) - SP, v: 0, dep });
@@ -583,24 +726,30 @@
       if (G.finished) return;
       G.minute += dt / SECONDS_PER_MINUTE;
 
-      const parking = parkingRoad();
-      if (!G.job && (pilot.track === 'R' || pilot.track === null) && arrivalReady() && parking) {
-        // A train is arriving, so Pip gets out of the throat and parks on another road.
-        startPark(parking);
-      } else if (!G.job && (pilot.track === 'R' || pilot.track === 'SHED') && locoReady()) {
-        // The engine is about to run from the reception road into the shed, so Pip heads home.
+      const incoming = arrivalReady();
+      const loco = readyLoco();
+      if (!G.job && incoming && (pilot.track === null || pilot.track === incoming.track)) {
+        // A train is arriving: Pip gets out of the way and parks on another road.
+        const parking = parkingRoad(incoming.track);
+        if (parking) startPark(parking);
+      } else if (!G.job && loco && (pilot.track === loco.id || pilot.track === 'SHED')) {
+        // The engine is about to run into the shed, so Pip heads home.
         startHome();
       }
       if (!G.job) {
-        if (locoReady()) startEngineRun('R', 'SHED');
-        else {
-          const arrival = arrivalReady();
-          if (arrival) startArrival(arrival);
-        }
+        if (loco) {
+          undoState = null;
+          startEngineRun(loco.id, 'SHED');
+        } else if (incoming) startArrival(incoming);
+      }
+      const held = G.waitingArrival();
+      if (held && !held.held) {
+        held.held = true;
+        emit('held', { arrival: held });
       }
       const shedOpen = !byId.get('SHED').locked && byId.get('SHED').cars.length < byId.get('SHED').cap;
       if (G.job || pilot.track !== null) idle = 0;
-      else if (shedOpen && !locoReady() && !arrivalReady()) {
+      else if (shedOpen && !readyLoco() && !arrivalReady()) {
         idle += dt;
         if (idle >= IDLE_SECONDS) {
           idle = 0;
@@ -609,6 +758,7 @@
         }
       }
       if (G.job) stepJob(dt);
+      updateUnloading(dt);
 
       updateDepartures(dt);
       updateLeaving(dt);

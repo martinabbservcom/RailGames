@@ -21,6 +21,7 @@
   let hoverTrack = null;
   let hoverCar = null;
   let hoverPilot = false;
+  let hintShown = null; // { text, track, idx, to, until }
   let last = performance.now();
   let panelTimer = 0;
   let finishTimer = null;
@@ -103,6 +104,7 @@
     if (!renderer) renderer = Y.createRenderer(canvas, game);
     else renderer.setGame(game);
     selected = null;
+    hintShown = null;
     paused = false;
     $('pause').textContent = 'Ⅱ';
     $('level-name').textContent = `Day ${index + 1}: ${game.level.title}`;
@@ -190,7 +192,7 @@
       card.innerHTML = '<div class="top"><span class="time"></span><span class="name"><b></b><small></small></span><span class="chip"></span></div>';
       card.querySelector('.time').textContent = clock(game.level.start + arrival.at);
       card.querySelector('b').textContent = `From ${arrival.from}`;
-      card.querySelector('small').textContent = `${arrival.cars.length} vehicles`;
+      card.querySelector('small').textContent = `${arrival.cars.length} vehicles · ${game.byId.get(arrival.track).name}`;
       card.appendChild(consist(arrival.cars, false));
       arrBoard.appendChild(card);
     }
@@ -215,11 +217,14 @@
       if (!card) continue;
       const left = Math.round(game.level.start + arrival.at - game.minute);
       let chip = left > 0 ? `in ${left} min` : 'due';
+      if (arrival.status === 'coming' && left <= 0) chip = 'Waiting…';
       if (arrival.status === 'arriving') chip = 'Arriving!';
+      if (arrival.status === 'unloading') chip = 'Unloading…';
       if (arrival.status === 'arrived') chip = 'Here ✓';
       card.className = `card arr status-${arrival.status}`;
       card.querySelector('.chip').textContent = chip;
     }
+    $('undo').disabled = !game.canUndo();
     $('clock').textContent = clock(game.minute);
     $('star-count').textContent = game.stars;
   }
@@ -319,6 +324,11 @@
       }
       const chosen = game.byId.get(car.track);
       if (chosen.locked) return;
+      if (game.isUnloading(car.track)) {
+        Y.sound.deny();
+        toast('Passengers are still getting off. One moment!');
+        return;
+      }
       if (selected && selected.track === car.track && selected.idx === car.idx) {
         selected = null;
         Y.sound.drop();
@@ -370,6 +380,9 @@
 
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') selected = null;
+    const typing = !$('menu').classList.contains('hidden') || !$('help').classList.contains('hidden') || !$('results').classList.contains('hidden');
+    if (game && !typing && (event.key === 'z' || event.key === 'Z')) undo();
+    if (game && !typing && (event.key === 'h' || event.key === 'H')) showHint();
     if (event.key === ' ' && game && $('menu').classList.contains('hidden')) {
       event.preventDefault();
       togglePause();
@@ -383,6 +396,31 @@
     $('pause').classList.toggle('on', paused);
   }
 
+  function undo() {
+    if (!game || paused || !game.undo()) {
+      Y.sound.deny();
+      return;
+    }
+    selected = null;
+    hintShown = null;
+    Y.sound.drop();
+    toast('Last move undone.');
+  }
+
+  function showHint() {
+    if (!game || game.finished) return;
+    const h = game.hint();
+    selected = null;
+    if (!h) {
+      toast('Nothing to do right now. Keep an eye on the clock!');
+      return;
+    }
+    hintShown = { ...h, until: performance.now() + 9000 };
+    Y.sound.pick();
+  }
+
+  $('undo').addEventListener('click', undo);
+  $('hint-button').addEventListener('click', showHint);
   $('pause').addEventListener('click', togglePause);
   for (const button of document.querySelectorAll('.speed button')) {
     button.addEventListener('click', () => {
@@ -460,8 +498,15 @@
           Y.sound.whistle();
           toast(`A train from ${event.arrival.from} is arriving!`);
           break;
+        case 'unloading':
+          toast('Passengers are getting off…');
+          break;
         case 'arrived':
-          toast('The engine is off to the shed.');
+          toast(`The ${event.arrival.from} train is unloaded. Move it out of the way!`);
+          break;
+        case 'held':
+          Y.sound.deny();
+          toast(`The ${event.arrival.from} train is held at the signal. Clear ${game.byId.get(event.arrival.track).name}!`, 'bad');
           break;
         case 'boarding':
           Y.sound.ding();
@@ -516,6 +561,7 @@
     let text = '';
     if (game.finished) text = '';
     else if (paused) text = 'Paused. Press the play button to carry on.';
+    else if (hintShown && hintShown.until > performance.now()) text = `💡 ${hintShown.text}`;
     else if (game.busy()) text = 'Pip is working…';
     else if (selected) {
       const n = selected.idx + 1;
@@ -539,7 +585,10 @@
           const wasBusy = !!game.job;
           game.update(step);
           remaining -= step;
-          if (!wasBusy && game.job) selected = null;
+          if (!wasBusy && game.job) {
+            selected = null;
+            hintShown = null;
+          }
         }
       }
       handleEvents();
@@ -553,11 +602,13 @@
         updateBoard();
         updateHint();
       }
+      if (hintShown && (hintShown.until < now || selected)) hintShown = null;
+      const hinting = hintShown && hintShown.track !== undefined;
       renderer.draw(now, paused ? 0 : dt, {
         selected,
-        targets: targets(),
+        targets: hinting ? [hintShown.to] : targets(),
         hoverTrack,
-        hoverCar,
+        hoverCar: hinting ? { track: hintShown.track, idx: hintShown.idx } : hoverCar,
         hoverPilot
       });
     }

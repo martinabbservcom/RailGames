@@ -46,6 +46,7 @@ button { font: inherit; cursor: pointer; }
 .scroller #yard { margin: auto; flex: none; touch-action: pan-x pan-y; }
 .zoom-controls { position: absolute; left: 10px; bottom: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
 .zoom-controls button { width: 42px; height: 42px; border-radius: 12px; border: 3px solid var(--sun); background: var(--navy); color: #fff; font-size: 22px; line-height: 1; padding: 0; }
+@media (hover: hover) and (pointer: fine) { .zoom-controls { display: none; } }
 #yard { display: block; border-radius: 18px; box-shadow: 0 10px 30px #0008; cursor: default; }
 .hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 80%; padding: 8px 18px; border-radius: 20px; background: #fff; border: 3px solid var(--ink); color: var(--ink); font-weight: 600; font-size: 16px; text-align: center; box-shadow: 0 4px 0 #0005; pointer-events: none; }
 .hint:empty { display: none; }
@@ -158,3 +159,4 @@ button { font: inherit; cursor: pointer; }
   .rotate-hint button { border: 0; background: transparent; font-size: 26px; line-height: 1; color: inherit; min-width: 36px; min-height: 36px; }
   html.is-touch .rotate-hint.dismissed { display: none; }
 }
+.round:disabled { opacity: .45; cursor: default; transform: none; }
