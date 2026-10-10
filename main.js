@@ -248,7 +248,7 @@
 
   function hitTrack(pt) {
     for (const track of game.tracks) {
-      if (pt.y >= track.y - 30 && pt.y <= track.y + 14 && pt.x >= track.straightX - 10 && pt.x <= track.xEnd + 30) return track;
+      if (pt.y >= track.y - 30 && pt.y <= track.y + 14 && pt.x >= track.xMin - 10 && pt.x <= track.xMax + 30) return track;
     }
     return null;
   }

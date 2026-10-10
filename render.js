@@ -389,7 +389,7 @@
     ctx.fillRect(x + 1.5, y + 2, 5, 3);
   }
 
-  const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [215, 320], [200, 240], [110, 210]],
+  const roadSegs = [[[-10, 470], [60, 450], [40, 400], [130, 360]], [[130, 360], [215, 320], [200, 240], [110, 210]],
     // Winds on and leaves the board at the left edge.
     [[110, 210], [50, 190], [20, 205], [-15, 215]]];
   const roadAt = (seg, t) => {
@@ -495,8 +495,8 @@
     ctx.lineWidth = 20;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-10, 560);
-    ctx.bezierCurveTo(60, 520, 40, 400, 130, 360);
+    ctx.moveTo(-10, 470);
+    ctx.bezierCurveTo(60, 450, 40, 400, 130, 360);
     ctx.bezierCurveTo(215, 320, 200, 240, 110, 210);
     ctx.bezierCurveTo(50, 190, 20, 205, -15, 215);
     ctx.stroke();
@@ -513,19 +513,6 @@
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.setLineDash([]);
-    // Pond.
-    ctx.fillStyle = '#7cc8f2';
-    ctx.beginPath();
-    ctx.ellipse(70, 610, 52, 26, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = INK;
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.7)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(55, 606, 10, 3.4, 5.4);
-    ctx.stroke();
     // Houses and trees.
     // Houses sit just beside the road, one side or the other.
     const houseDefs = [
@@ -544,12 +531,13 @@
       house(ctx, cx - w / 2, cy - h / 2 + 6, w, h, wall, roof);
       spots.push([cx, cy, 30]);
     }
+    for (const x of [40, 100, 160, 220, 270]) spots.push([x, 585, 44]);
     let tries = 0;
     let treeCount = 0;
     while (treeCount < 18 && tries++ < 800) {
       const x = 20 + rand() * 210;
       const y = 150 + rand() * 480;
-      if (free(x, y, 18) && !(x < 125 && y > 570)) {
+      if (free(x, y, 18) && !(x < 125 && y > 600)) {
         tree(ctx, x, y, 0.8 + rand() * 0.5, ['#4fb04f', '#5cc05c', '#3fa05a'][Math.floor(rand() * 3)]);
         spots.push([x, y, 18]);
         treeCount++;
@@ -654,7 +642,7 @@
       for (const track of game.tracks) drawTrackBed(ctx, track, game.pointAt, layer);
     }
     for (const track of game.tracks) {
-      if (!track.through) bufferStop(ctx, track.xEnd + 2, track.y);
+      if (!track.through) bufferStop(ctx, track.side === 'left' ? track.xEnd - 10 : track.xEnd + 2, track.y);
     }
 
     // Island platform.
@@ -678,29 +666,21 @@
       label(ctx, String(n), 526, y + 0.5, 11, '#fff', 'center', 700);
     }
 
-    // Engine shed.
-    box(ctx, 892, 534, 170, 60, 4, '#d9694f');
+    // Engine shed, on the left above the signal box, behind its own road.
+    box(ctx, 34, 536, 176, 36, 4, '#d9694f');
     ctx.beginPath();
-    ctx.moveTo(884, 538);
-    ctx.lineTo(1070, 538);
-    ctx.lineTo(1050, 514);
-    ctx.lineTo(904, 514);
+    ctx.moveTo(26, 540);
+    ctx.lineTo(218, 540);
+    ctx.lineTo(198, 514);
+    ctx.lineTo(46, 514);
     ctx.closePath();
     ctx.fillStyle = '#5a4b8f';
     ctx.fill();
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = INK;
     ctx.stroke();
-    box(ctx, 914, 548, 44, 34, 3, '#cfeaff', 2);
-    ctx.beginPath();
-    ctx.moveTo(936, 548);
-    ctx.lineTo(936, 582);
-    ctx.moveTo(914, 565);
-    ctx.lineTo(958, 565);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = INK;
-    ctx.stroke();
-    label(ctx, 'ENGINE SHED', 1010, 575, 10, '#fff5d8', 'center', 700);
+    box(ctx, 160, 546, 36, 24, 3, '#cfeaff', 2);
+    label(ctx, 'ENGINE SHED', 100, 556, 10, '#fff5d8', 'center', 700);
 
     // Signal box near the lead.
     box(ctx, 28, 640, 44, 34, 3, '#fff0c9');
@@ -832,7 +812,11 @@
     function drawVehicle(pose, extra) {
       ctx.save();
       ctx.translate(pose.x, pose.y);
-      ctx.rotate(pose.a);
+      if (Math.cos(pose.a) < 0) {
+        // Heading left (the engine shed road): turn the picture round so it stays the right way up.
+        ctx.rotate(pose.a + Math.PI);
+        ctx.scale(-1, 1);
+      } else ctx.rotate(pose.a);
       ctx.translate(0, -17);
       if (extra && extra.glow) {
         path(ctx, -30, -33, 60, 56, 10);
@@ -847,8 +831,9 @@
     function tab(track, time) {
       const dep = G.activeDeparture(track.id);
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
-      const x = track.straightX + 8;
-      const y = track.y - 33;
+      const x = track.xMin + 8;
+      // The engine shed's label sits above its roof so the engines don't hide it.
+      const y = track.side === 'left' ? track.y - 95 : track.y - 33;
       const lines = [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
@@ -875,23 +860,22 @@
     }
 
     function lockedOverlay(track) {
-      // Keep the closed-track marking clear of the engine shed building.
-      const xEnd = track.y > 470 && track.y < 600 ? Math.min(track.xEnd, 876) : track.xEnd;
+      const xEnd = track.xMax;
       ctx.save();
-      path(ctx, track.straightX - 4, track.y - 16, xEnd - track.straightX + 14, 32, 8);
+      path(ctx, track.xMin - 4, track.y - 16, xEnd - track.xMin + 14, 32, 8);
       ctx.clip();
       ctx.fillStyle = 'rgba(70,80,100,.45)';
-      ctx.fillRect(track.straightX - 4, track.y - 16, xEnd - track.straightX + 14, 32);
+      ctx.fillRect(track.xMin - 4, track.y - 16, xEnd - track.xMin + 14, 32);
       ctx.strokeStyle = 'rgba(255,214,64,.8)';
       ctx.lineWidth = 6;
-      for (let x = track.straightX - 40; x < xEnd + 20; x += 26) {
+      for (let x = track.xMin - 40; x < xEnd + 20; x += 26) {
         ctx.beginPath();
         ctx.moveTo(x, track.y + 18);
         ctx.lineTo(x + 30, track.y - 18);
         ctx.stroke();
       }
       ctx.restore();
-      for (const x of [track.straightX + 24, xEnd - 24]) {
+      for (const x of [track.xMin + 24, xEnd - 24]) {
         ctx.beginPath();
         ctx.moveTo(x - 7, track.y + 6);
         ctx.lineTo(x, track.y - 14);
@@ -903,12 +887,12 @@
         ctx.strokeStyle = INK;
         ctx.stroke();
       }
-      label(ctx, 'Closed today', (track.straightX + xEnd) / 2, track.y, 13, '#fff', 'center', 700);
+      label(ctx, 'Closed today', (track.xMin + xEnd) / 2, track.y, 13, '#fff', 'center', 700);
     }
 
     function targetGlow(track, time) {
       const pulse = 0.5 + 0.5 * Math.sin(time / 220);
-      path(ctx, track.straightX - 6, track.y - 25, track.xEnd - track.straightX + 18, 38, 12);
+      path(ctx, track.xMin - 6, track.y - 25, track.xMax - track.xMin + 18, 38, 12);
       ctx.fillStyle = `rgba(255,255,255,${0.16 + pulse * 0.16})`;
       ctx.fill();
       ctx.setLineDash([10, 8]);
@@ -918,7 +902,7 @@
       ctx.stroke();
       ctx.setLineDash([]);
       // Arrow showing where the cars will be placed.
-      const x = track.xEnd - (track.cars.length + 0.5) * G.SP;
+      const x = G.pointAt(track, G.slotU(track, 0, track.cars.length + 1)).x;
       ctx.beginPath();
       ctx.moveTo(x + 12, track.y - 32 - pulse * 3);
       ctx.lineTo(x - 12, track.y - 32 - pulse * 3);
@@ -940,13 +924,13 @@
       circle(ctx, x, y - 25, 3.6, state === 'green' ? '#5dff8a' : '#4a3a3a');
     }
 
-    // Entry signals: one by the signal box for the reception road, and one at the throat of each
+    // Entry signals: one by the signal box for Siding 5, and one at the throat of each
     // platform that a train arrives on. Red until the road is empty, amber when a train is due soon.
     function entrySignals() {
-      signalPost(92, 668, G.entrySignal('R'));
+      signalPost(92, 668, G.entrySignal('S5'));
       const used = new Set(G.arrivals.map(a => a.track));
       for (const track of G.tracks) {
-        if (track.id === 'R' || track.locked || !used.has(track.id)) continue;
+        if (track.id === 'S5' || track.locked || !used.has(track.id)) continue;
         signalPost(track.straightX - 44, track.y - 16, G.entrySignal(track.id));
       }
     }
@@ -1188,7 +1172,7 @@
       for (const track of G.tracks) {
         if (ui.targets.includes(track.id)) targetGlow(track, time);
         else if (ui.hoverTrack === track.id && !track.locked && ui.selected) {
-          path(ctx, track.straightX - 6, track.y - 25, track.xEnd - track.straightX + 18, 38, 12);
+          path(ctx, track.xMin - 6, track.y - 25, track.xMax - track.xMin + 18, 38, 12);
           ctx.strokeStyle = 'rgba(200,60,60,.7)';
           ctx.lineWidth = 3;
           ctx.stroke();
@@ -1233,9 +1217,13 @@
       const pilot = G.pilotPose();
       ctx.save();
       ctx.translate(pilot.x, pilot.y);
-      ctx.rotate(pilot.a);
+      let pilotFlip = pilot.flip;
+      if (Math.cos(pilot.a) < 0) {
+        ctx.rotate(pilot.a + Math.PI);
+        pilotFlip = !pilotFlip;
+      } else ctx.rotate(pilot.a);
       ctx.translate(0, -17);
-      if (pilot.flip) ctx.scale(-1, 1);
+      if (pilotFlip) ctx.scale(-1, 1);
       if (pilot.work && pilot.moving) ctx.translate(0, Math.sin(time / 45) * 0.8);
       drawPilot(ctx, time);
       ctx.restore();

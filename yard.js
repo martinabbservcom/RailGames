@@ -27,8 +27,10 @@
     { id: 'S1', name: 'Siding 1', y: 384, xEnd: 960, through: false, kind: 'siding' },
     { id: 'S2', name: 'Siding 2', y: 448, xEnd: 960, through: false, kind: 'siding' },
     { id: 'S3', name: 'Siding 3', y: 512, xEnd: 960, through: false, kind: 'siding' },
-    { id: 'SHED', name: 'Engine shed', y: 576, xEnd: 880, through: false, kind: 'shed' },
-    { id: 'R', name: 'Reception', y: 640, xEnd: 960, through: false, kind: 'reception' }
+    { id: 'S4', name: 'Siding 4', y: 576, xEnd: 960, through: false, kind: 'siding' },
+    { id: 'S5', name: 'Siding 5', y: 640, xEnd: 960, through: false, kind: 'siding' },
+    // The engine shed branches off the spine to the LEFT, above the signal box, and runs leftwards.
+    { id: 'SHED', name: 'Engine shed', y: 590, xEnd: 26, through: false, kind: 'shed', side: 'left' }
   ];
 
   const spinePoint = y => ({ x: L0.x + (L0.y - y) * SPINE_K, y });
@@ -56,6 +58,7 @@
       pts.push({ x, y, u: last ? last.u + Math.hypot(x - last.x, y - last.y) : -CORNER });
     };
     const bendY = L0.y - def.y;
+    const left = def.side === 'left';
     let uBranch;
     let p2;
     {
@@ -67,29 +70,33 @@
         const m = 1 - t;
         add(m * m * (L0.x - CORNER) + 2 * m * t * L0.x + t * t * cornerEnd.x, m * m * L0.y + 2 * m * t * L0.y + t * t * cornerEnd.y);
       }
-      const bend = Math.min(60, bendY - CORNER - 4);
+      const bend = left ? 56 : Math.min(60, bendY - CORNER - 4);
       const p0 = spinePoint(def.y + bend);
       const p1 = spinePoint(def.y);
-      p2 = { x: p1.x + bend * 1.4 + 20, y: def.y };
+      p2 = left ? { x: p1.x - 62, y: def.y } : { x: p1.x + bend * 1.4 + 20, y: def.y };
       add(p0.x, p0.y);
       uBranch = pts[pts.length - 1].u;
       const c1 = { x: p0.x + SPINE_DIR.x * 40, y: p0.y + SPINE_DIR.y * 40 };
-      const c2 = { x: p2.x - 45, y: p2.y };
+      const c2 = { x: p2.x + (left ? 45 : -45), y: p2.y };
       for (let i = 1; i <= 30; i++) {
         const p = cubic(p0, c1, c2, p2, i / 30);
         add(p.x, p.y);
       }
     }
     const uStraight = pts[pts.length - 1].u;
-    add(W + 500, def.y);
+    add(left ? -500 : W + 500, def.y);
+    const length = Math.abs(def.xEnd - p2.x);
     return {
       ...def,
       pts,
       uBranch,
       uStraight,
       straightX: p2.x,
-      uEnd: uStraight + (def.xEnd - p2.x),
-      cap: Math.floor((def.xEnd - p2.x - 8) / SP),
+      // Left and right ends of the straight part of the road, whichever way it runs.
+      xMin: Math.min(p2.x, def.xEnd),
+      xMax: Math.max(p2.x, def.xEnd),
+      uEnd: uStraight + length,
+      cap: Math.floor((length - 8) / SP),
       cars: [],
       locked: false
     };
@@ -130,7 +137,7 @@
       .map((d, i) => ({ ...d, id: i + 1, status: 'waiting', progress: 0, stars: 0, lateBy: 0 }))
       .sort((a, b) => a.at - b.at);
     const arrivals = level.arrivals
-      .map((a, i) => ({ ...a, id: i + 1, track: a.track || 'R', status: 'coming' }))
+      .map((a, i) => ({ ...a, id: i + 1, track: a.track || 'S5', status: 'coming' }))
       .sort((a, b) => a.at - b.at);
 
     const unloadings = []; // trains standing while their passengers get off
@@ -342,9 +349,9 @@
       });
     }
 
-    // Pip must never be left on the reception road, or on the lead by the signal box, when a
+    // Pip must never be left on a road a train is arriving on, or on the lead by the signal box, when a
     // train is due: it parks on the engine shed road (or another open road) and stays out of the way.
-    const PARK_ORDER = ['SHED', 'S1', 'S2', 'S3', 'G', 'R', 'P2', 'P1'];
+    const PARK_ORDER = ['SHED', 'S1', 'S2', 'S3', 'S4', 'S5', 'G', 'P2', 'P1'];
     function parkingRoad(exclude) {
       const open = id => {
         const t = byId.get(id);
@@ -387,7 +394,7 @@
       return true;
     };
 
-    // An engine runs itself from the reception road to the shed.
+    // An engine runs itself to the shed.
     function startEngineRun(fromId, toId, k = 1) {
       const { uCouple, uOut, uFinal } = planMove(fromId, toId, k);
       startJob({
@@ -576,7 +583,7 @@
           const t = byId.get(id);
           return t && !t.locked && !exclude.includes(id) && !isUnloading(id) && !activeDeparture(id) && t.cars.length + k <= t.cap;
         };
-        const id = ['S1', 'S2', 'S3', 'R', 'G', 'P2', 'P1'].find(ok);
+        const id = ['S1', 'S2', 'S3', 'S4', 'S5', 'G', 'P2', 'P1'].find(ok);
         return id ? byId.get(id) : null;
       };
       const moveOut = (track, k, why) => {
@@ -653,7 +660,7 @@
     G.pilotPose = () => {
       const job = G.job;
       if (!job || job.hidePilot) {
-        const p = pointAt(byId.get(pilot.track || 'R'), pilot.u);
+        const p = pointAt(byId.get(pilot.track || 'SHED'), pilot.u);
         return { ...p, flip: pilot.flip, moving: false, work: false, parked: pilot.track !== null };
       }
       const p = pointAt(byId.get(job.track), job.pilotU);
