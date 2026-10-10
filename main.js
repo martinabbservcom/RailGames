@@ -104,6 +104,7 @@
     else renderer.setGame(game);
     selected = null;
     hintShown = null;
+    setSpeed(1);
     paused = false;
     $('pause').textContent = 'Ⅱ';
     $('level-name').textContent = `Day ${index + 1}: ${game.level.title}`;
@@ -444,11 +445,12 @@
   $('undo').addEventListener('click', undo);
   $('hint-button').addEventListener('click', showHint);
   $('pause').addEventListener('click', togglePause);
+  function setSpeed(value) {
+    speed = value;
+    for (const b of document.querySelectorAll('.speed button')) b.classList.toggle('selected', Number(b.dataset.speed) === value);
+  }
   for (const button of document.querySelectorAll('.speed button')) {
-    button.addEventListener('click', () => {
-      speed = Number(button.dataset.speed);
-      for (const b of document.querySelectorAll('.speed button')) b.classList.toggle('selected', b === button);
-    });
+    button.addEventListener('click', () => setSpeed(Number(button.dataset.speed)));
   }
   $('music').addEventListener('click', () => {
     const on = !Y.sound.isMusicOn();
@@ -565,6 +567,7 @@
   }
 
   function showResults(event) {
+    setSpeed(1);
     saveStars(game.level.id, event.stars);
     const ratio = event.max ? event.stars / event.max : 0;
     $('results-title').textContent = ratio >= 0.9 ? 'Brilliant!' : ratio >= 0.5 ? 'Well done!' : 'Good try!';

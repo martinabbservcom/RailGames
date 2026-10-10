@@ -368,16 +368,16 @@
     // Pip must never be left on a road a train is arriving on, or on the lead by the signal box, when a
     // train is due: it parks on the engine shed road (or another open road) and stays out of the way.
     const PARK_ORDER = ['SHED', 'SHED2', 'S1', 'S2', 'S3', 'G', 'P2', 'P1'];
-    function parkingRoad(exclude) {
+    function parkingRoad(...exclude) {
       const open = id => {
         const t = byId.get(id);
-        return t && !t.locked && t.id !== exclude && t.cars.length < t.cap && !isUnloading(t.id);
+        return t && !t.locked && !exclude.includes(t.id) && t.cars.length < t.cap && !isUnloading(t.id);
       };
       const id = PARK_ORDER.find(open);
       return id ? byId.get(id) : null;
     }
 
-    function startPark(dest) {
+    function startPark(dest, then) {
       const from = pilot.track === null ? null : byId.get(pilot.track);
       const uStop = slotU(dest, 0, dest.cars.length) - SP;
       const steps = [];
@@ -396,6 +396,7 @@
           pilot.track = dest.id;
           pilot.u = uStop;
           pilot.flip = false;
+          if (then) then();
         }
       });
     }
@@ -560,7 +561,11 @@
       if (from.cars.slice(0, k).some(v => isLoco(v.type))) {
         if (pilot.track === fromId || pilot.track === toId) {
           // Pip is in the way: send it home first, then the engine goes.
-          startHome(() => startEngineRun(fromId, toId, k));
+          // Pip tucks itself away in an engine shed (or another free road) rather than going back to the signal box.
+          const away = parkingRoad(fromId, toId);
+          const run = () => startEngineRun(fromId, toId, k);
+          if (away) startPark(away, run);
+          else startHome(run);
         } else {
           startEngineRun(fromId, toId, k);
         }
@@ -798,9 +803,11 @@
         // A train is arriving: Pip gets out of the way and parks on another road.
         const parking = parkingRoad(incoming.track);
         if (parking) startPark(parking);
-      } else if (!G.job && loco && (pilot.track === loco.id || (pilot.track !== null && isShed(byId.get(pilot.track))))) {
-        // The engine is about to run into the shed, so Pip heads home.
-        startHome();
+      } else if (!G.job && loco && (pilot.track === loco.id || pilot.track === freeShed().id)) {
+        // The engine is about to run into the shed: Pip moves over to another shed road (or home if none is free).
+        const away = parkingRoad(loco.id, freeShed().id);
+        if (away) startPark(away);
+        else startHome();
       }
       if (!G.job) {
         if (loco) {
