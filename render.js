@@ -527,12 +527,14 @@
       spots.push([cx, cy, 30]);
     }
     let tries = 0;
-    while (spots.length < 24 && tries++ < 400) {
+    let treeCount = 0;
+    while (treeCount < 18 && tries++ < 800) {
       const x = 20 + rand() * 210;
       const y = 150 + rand() * 480;
       if (free(x, y, 18) && !(x < 125 && y > 570)) {
         tree(ctx, x, y, 0.8 + rand() * 0.5, ['#4fb04f', '#5cc05c', '#3fa05a'][Math.floor(rand() * 3)]);
         spots.push([x, y, 18]);
+        treeCount++;
       }
     }
     for (let i = 0; i < 40; i++) {
