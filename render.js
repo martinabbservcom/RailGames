@@ -388,7 +388,7 @@
 
     // Sun with a face.
     ctx.save();
-    ctx.translate(985, 56);
+    ctx.translate(150, 62);
     ctx.strokeStyle = '#ffe27a';
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
@@ -513,7 +513,7 @@
     ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,.18)';
     for (let x = 460; x < 1040; x += 22) ctx.fillRect(x, 28, 10, 16);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 5; i++) {
       const x = 470 + i * 96 + (i > 2 ? 90 : 0);
       box(ctx, x, 62, 34, 38, 15, '#cfeaff', 2);
       ctx.beginPath();
