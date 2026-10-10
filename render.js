@@ -375,6 +375,42 @@
     ctx.fillRect(x + 1.5, y + 2, 5, 3);
   }
 
+  const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [210, 320], [150, 240], [210, 180]]];
+  const roadAt = (seg, t) => {
+    const [p0, p1, p2, p3] = seg;
+    const u = 1 - t;
+    const f = i => u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i];
+    const g = i => 3 * u * u * (p1[i] - p0[i]) + 6 * u * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]);
+    const len = Math.hypot(g(0), g(1));
+    return { x: f(0), y: f(1), nx: -g(1) / len, ny: g(0) / len };
+  };
+
+  // The village road as a polyline measured by distance, for traffic.
+  const ROAD_PATH = (() => {
+    const pts = [];
+    let len = 0;
+    for (const seg of roadSegs) {
+      for (let i = 0; i <= 40; i++) {
+        const r = roadAt(seg, i / 40);
+        if (pts.length) len += Math.hypot(r.x - pts[pts.length - 1].x, r.y - pts[pts.length - 1].y);
+        pts.push({ x: r.x, y: r.y, d: len });
+      }
+    }
+    return { pts, len };
+  })();
+
+  function roadPoint(d) {
+    const pts = ROAD_PATH.pts;
+    let i = 1;
+    while (i < pts.length - 1 && pts[i].d < d) i++;
+    const a = pts[i - 1];
+    const b = pts[i];
+    const t = (d - a.d) / ((b.d - a.d) || 1);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return { x: a.x + dx * t, y: a.y + dy * t, angle: Math.atan2(dy, dx) };
+  }
+
   function drawScenery(ctx, game) {
     const { W, H } = game;
     const rand = mulberry(7);
@@ -442,15 +478,6 @@
     ctx.strokeStyle = '#d6cdb5';
     ctx.lineWidth = 20;
     ctx.lineCap = 'round';
-    const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [210, 320], [150, 240], [210, 180]]];
-    const roadAt = (seg, t) => {
-      const [p0, p1, p2, p3] = seg;
-      const u = 1 - t;
-      const f = i => u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i];
-      const g = i => 3 * u * u * (p1[i] - p0[i]) + 6 * u * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]);
-      const len = Math.hypot(g(0), g(1));
-      return { x: f(0), y: f(1), nx: -g(1) / len, ny: g(0) / len };
-    };
     ctx.beginPath();
     ctx.moveTo(-10, 560);
     ctx.bezierCurveTo(60, 520, 40, 400, 130, 360);
@@ -999,10 +1026,68 @@
       label(ctx, text, 21, y - 15.5, 12, INK, 'left', 700);
     }
 
+    const traffic = [];
+    let nextVehicle = 4;
+    const carColors = ['#e5484d', '#4d96ff', '#ffd23f', '#3ccf7a', '#ff8a3d', '#8b5cf6'];
+
+    function updateTraffic(dt) {
+      nextVehicle -= dt;
+      if (nextVehicle <= 0) {
+        nextVehicle = 9 + Math.random() * 14;
+        const bus = Math.random() < 0.35;
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        traffic.push({
+          bus,
+          dir,
+          d: dir > 0 ? -30 : ROAD_PATH.len + 30,
+          speed: bus ? 38 : 55,
+          color: bus ? '#e5484d' : carColors[Math.floor(Math.random() * carColors.length)]
+        });
+      }
+      for (const v of traffic) v.d += v.dir * v.speed * dt;
+      for (let i = traffic.length - 1; i >= 0; i--) {
+        if (traffic[i].d < -40 || traffic[i].d > ROAD_PATH.len + 40) traffic.splice(i, 1);
+      }
+    }
+
+    function drawTraffic() {
+      for (const v of traffic) {
+        const d = Math.max(0, Math.min(ROAD_PATH.len, v.d));
+        const p = roadPoint(d);
+        // Drive on the left: offset to the left of the direction of travel.
+        const heading = p.angle + (v.dir < 0 ? Math.PI : 0);
+        const L = v.bus ? 40 : 24;
+        const Wd = v.bus ? 13 : 11;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(heading);
+        ctx.translate(0, -5);
+        ctx.fillStyle = 'rgba(0,0,0,.18)';
+        ctx.fillRect(-L / 2 + 2, -Wd / 2 + 3, L, Wd);
+        path(ctx, -L / 2, -Wd / 2, L, Wd, 3);
+        ctx.fillStyle = v.color;
+        ctx.fill();
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = INK;
+        ctx.stroke();
+        ctx.fillStyle = '#cfeaff';
+        if (v.bus) {
+          for (let x = -L / 2 + 5; x < L / 2 - 8; x += 8) ctx.fillRect(x, -Wd / 2 + 2, 5, Wd - 4);
+          ctx.fillRect(L / 2 - 7, -Wd / 2 + 2, 4, Wd - 4);
+        } else {
+          ctx.fillRect(L / 2 - 9, -Wd / 2 + 2, 5, Wd - 4);
+          ctx.fillRect(-L / 2 + 4, -Wd / 2 + 2, 3, Wd - 4);
+        }
+        ctx.restore();
+      }
+    }
+
     function draw(time, dt, ui) {
       particles.length && updateParticles(dt);
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.drawImage(scenery, 0, 0, G.W, G.H);
+      updateTraffic(dt);
+      drawTraffic();
 
       for (const [i, c] of clouds.entries()) {
         const x = ((c[0] + time / (60 + i * 25)) % (G.W + 200)) - 100;
