@@ -11,6 +11,7 @@
   const board = $('timetable');
   const STORE_KEY = 'pebblebrook-yard-stars';
 
+  const starsHtml = $('stars-total').innerHTML;
   let levelIndex = 0;
   let game = null;
   let renderer = null;
@@ -78,6 +79,7 @@
     for (const [i, level] of Y.LEVELS.entries()) {
       const max = level.departures.length * 3;
       const got = stars[level.id] || 0;
+      const endless = !!level.endless;
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'level-card';
@@ -85,7 +87,8 @@
       card.querySelector('.num').textContent = i + 1;
       card.querySelector('b').textContent = level.title;
       card.querySelector('small').textContent = level.blurb;
-      card.querySelector('.earned').innerHTML = got ? `★ ${got}<i> / ${max}</i>` : `<i>0 / ${max}</i>`;
+      if (endless) card.querySelector('.earned').innerHTML = got ? `🚂 ${got}<i> best</i>` : '<i>∞</i>';
+      else card.querySelector('.earned').innerHTML = got ? `★ ${got}<i> / ${max}</i>` : `<i>0 / ${max}</i>`;
       card.addEventListener('click', () => {
         Y.sound.unlock();
         startLevel(i);
@@ -108,7 +111,12 @@
     paused = false;
     $('pause').textContent = 'Ⅱ';
     $('level-name').textContent = `Day ${index + 1}: ${game.level.title}`;
-    $('star-max').textContent = game.maxStars;
+    if (game.endless) $('stars-total').title = 'Trains sent off, and trains missed';
+    else {
+      $('stars-total').title = 'Stars earned this day';
+      $('stars-total').innerHTML = starsHtml;
+      $('star-max').textContent = game.maxStars;
+    }
     buildBoard();
     fit();
     hideOverlays();
@@ -170,6 +178,7 @@
   }
 
   function buildBoard() {
+    builtVersion = game.scheduleVersion;
     board.replaceChildren();
     lastNext = null;
     const rows = [
@@ -203,7 +212,9 @@
   }
 
   let lastNext = null;
+  let builtVersion = 0;
   function updateBoard() {
+    if (game.scheduleVersion !== builtVersion) buildBoard();
     let next = null;
     for (const dep of game.departures) {
       const card = board.querySelector(`[data-key="dep${dep.id}"]`);
@@ -242,7 +253,9 @@
     lastNext = next;
     $('undo').disabled = !game.canUndo();
     $('clock').textContent = clock(game.minute);
-    $('star-count').textContent = game.stars;
+    if (game.endless) {
+      $('stars-total').innerHTML = `🚂 <span id="star-count">${game.sent}</span> sent &nbsp;✗ ${game.missed} / ${game.maxMisses}`;
+    } else $('star-count').textContent = game.stars;
   }
 
   // ---- Input ----------------------------------------------------------------------
@@ -342,7 +355,7 @@
       if (chosen.locked) return;
       if (game.isUnloading(car.track)) {
         Y.sound.deny();
-        toast('Passengers are still getting off. One moment!');
+        toast(game.unloadingKind(car.track) === 'goods' ? 'Goods are still being unloaded. Please wait.' : 'Passengers are still getting off. One moment!');
         return;
       }
       if (selected && selected.track === car.track && selected.idx === car.idx) {
@@ -371,7 +384,7 @@
       const t = game.byId.get(trackId);
       let message = 'Not enough room on that track!';
       if (t.locked) message = 'That track is closed today.';
-      else if (game.isUnloading(trackId)) message = 'Passengers are still getting off there.';
+      else if (game.isUnloading(trackId)) message = game.unloadingKind(trackId) === 'goods' ? 'Goods are still being unloaded there. Please wait.' : 'Passengers are still getting off there.';
       else if (game.cutNeedsService(selected.track, selected.idx + 1) && t.kind !== 'shed') {
         message = 'That engine needs servicing, so it can only go to an engine shed.';
       }
@@ -530,7 +543,7 @@
           toast('An engine has been serviced and is ready to work.', 'good');
           break;
         case 'unloading':
-          toast('Passengers are getting off…');
+          toast(event.arrival.cars.some(type => Y.isPassenger(type)) ? 'Passengers are getting off…' : 'Unloading goods. Please wait…');
           break;
         case 'arrived':
           toast(`The ${event.arrival.from} train is unloaded. Move it out of the way. Its engine needs servicing and goes to the shed.`);
@@ -556,7 +569,7 @@
         }
         case 'cancel':
           Y.sound.sad();
-          toast(`${event.dep.name} had to leave without a train.`, 'bad');
+          toast(game.endless ? `${event.dep.name} missed! That's ${event.missed} of ${game.maxMisses}.` : `${event.dep.name} had to leave without a train.`, 'bad');
           break;
         case 'finish':
           finishTimer = setTimeout(() => showResults(event), 1800);
@@ -568,6 +581,16 @@
 
   function showResults(event) {
     setSpeed(1);
+    if (game.endless) {
+      saveStars(game.level.id, event.sent);
+      $('results-title').textContent = event.sent >= 10 ? 'Brilliant!' : event.sent >= 5 ? 'Well done!' : 'Good try!';
+      const row = $('results-stars');
+      row.replaceChildren();
+      $('results-text').textContent = `You sent off ${event.sent} ${event.sent === 1 ? 'train' : 'trains'} before missing ${event.missed}. Best so far: ${loadStars()[game.level.id] || event.sent}.`;
+      $('next').style.display = 'none';
+      show('results');
+      return;
+    }
     saveStars(game.level.id, event.stars);
     const ratio = event.max ? event.stars / event.max : 0;
     $('results-title').textContent = ratio >= 0.9 ? 'Brilliant!' : ratio >= 0.5 ? 'Well done!' : 'Good try!';

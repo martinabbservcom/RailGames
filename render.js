@@ -850,7 +850,9 @@
         const note = arrived || G.isUnloading(track.id) ? '' : G.formationHint(dep, track);
         if (note) lines.push({ text: note, size: 10, color: note === 'Perfect!' ? '#1f9d5b' : '#b5651d' });
       }
-      if (G.isUnloading(track.id)) lines.push({ text: 'Passengers getting off…', size: 10, color: '#1b6fd1' });
+      if (G.isUnloading(track.id)) {
+        lines.push({ text: G.unloadingKind(track.id) === 'goods' ? 'Unloading goods, please wait…' : 'Passengers getting off…', size: 10, color: '#1b6fd1' });
+      }
       let w = 0;
       for (const line of lines) {
         ctx.font = `700 ${line.size}px ${FONT}`;

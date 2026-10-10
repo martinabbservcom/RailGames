@@ -113,6 +113,18 @@
         { at: 46, track: 'P2', name: 'Lake Flyer', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'guard'] },
         { at: 62, track: 'P1', name: 'Evening Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] }
       ]
+    },
+    {
+      id: 5,
+      title: 'Endless Rush',
+      blurb: 'Trains keep coming and it only gets busier. How long can you last? The day ends when you miss 3 trains.',
+      endless: true,
+      start: 8 * 60,
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
+      shed: ['diesel', 'steam'],
+      initial: {},
+      arrivals: [],
+      departures: []
     }
   ];
 })();

@@ -158,10 +158,16 @@
 
     const unloadings = []; // trains standing while their passengers get off
     let undoState = null;
+    const MAX_MISSES = 3;
 
     const G = {
       level,
       unloadings,
+      endless: !!level.endless,
+      maxMisses: MAX_MISSES,
+      missed: 0,
+      sent: 0,
+      scheduleVersion: 0,
       SERVICE_MINUTES,
       W,
       H,
@@ -470,6 +476,13 @@
     }
     G.isUnloading = isUnloading;
 
+    // 'passengers' or 'goods' for a train standing while it unloads, otherwise null.
+    G.unloadingKind = trackId => {
+      const u = unloadings.find(x => x.track === trackId);
+      if (!u) return null;
+      return u.arrival.cars.some(type => isPassenger(type)) ? 'passengers' : 'goods';
+    };
+
     function updateUnloading(dt) {
       for (let i = unloadings.length - 1; i >= 0; i--) {
         const u = unloadings[i];
@@ -640,7 +653,9 @@
         return ready ? { text: `${ready.name} is ready and leaves at its time. Keep platforms free for arriving trains.` } : null;
       }
       const track = byId.get(dep.track);
-      if (isUnloading(track.id)) return { text: `Passengers are still getting off at ${track.name}. One moment!` };
+      if (isUnloading(track.id)) {
+        return { text: G.unloadingKind(track.id) === 'goods' ? `Goods are still being unloaded at ${track.name}. Please wait.` : `Passengers are still getting off at ${track.name}. One moment!` };
+      }
       const front = [...track.cars].reverse();
       const fits = i => (dep.spec[i] === 'loco' ? isLoco(front[i].type) : front[i].type === dep.spec[i]);
       for (let i = 0; i < Math.min(front.length, dep.spec.length); i++) {
@@ -767,7 +782,8 @@
         if (dep.status !== 'done' && G.minute > due + CANCEL_AFTER) {
           dep.status = 'cancelled';
           dep.progress = 0;
-          emit('cancel', { dep });
+          G.missed++;
+          emit('cancel', { dep, missed: G.missed });
         }
       }
     }
@@ -778,6 +794,7 @@
       dep.stars = late <= STAR_LIMITS[0] ? 3 : late <= STAR_LIMITS[1] ? 2 : 1;
       dep.status = 'done';
       undoState = null;
+      G.sent++;
       G.stars += dep.stars;
       const cars = track.cars.splice(0);
       G.leaving.push({ track: track.id, cars, base: slotU(track, 0, cars.length) - SP, v: 0, dep });
@@ -799,6 +816,7 @@
     G.update = dt => {
       if (G.finished) return;
       G.minute += dt / SECONDS_PER_MINUTE;
+      if (endless) extendSchedule();
 
       const incoming = arrivalReady();
       const loco = readyLoco();
@@ -848,11 +866,106 @@
       updateDepartures(dt);
       updateLeaving(dt);
 
-      if (departures.every(d => d.status === 'done' || d.status === 'cancelled') && G.leaving.length === 0) {
+      if (endless) {
+        if (G.missed >= MAX_MISSES) {
+          G.finished = true;
+          emit('finish', { stars: G.stars, max: 0, sent: G.sent, missed: G.missed });
+        }
+      } else if (departures.every(d => d.status === 'done' || d.status === 'cancelled') && G.leaving.length === 0) {
         G.finished = true;
         emit('finish', { stars: G.stars, max: G.maxStars });
       }
     };
+
+
+    // ---- Endless mode ----------------------------------------------------------------
+    // The timetable is made up as the game goes on, getting busier and harder, until the
+    // player has missed MAX_MISSES trains. Every departure is built from vehicles that
+    // really arrive, so it can always be done (but not always in time).
+    const endless = !!level.endless;
+    const TOWNS = ['Hillbury', 'Marshford', 'Dockside', 'Castle Hill', 'Lakeside', 'Greenfield', 'Cityville', 'Sandy Bay'];
+    const PASSENGER_MIX = ['coach', 'coach', 'coach', 'first', 'buffet'];
+    const GOODS_MIX = ['coal', 'box', 'logs', 'tank', 'box'];
+    const rnd = (lo, hi) => lo + Math.random() * (hi - lo);
+    const pick = list => list[Math.floor(Math.random() * list.length)];
+    const gen = { arrivals: 0, deps: 0, t: 0, flip: false, pool: { passenger: [], goods: [] }, lastDep: new Map() };
+    let nextArrivalId = arrivals.length;
+    let nextDepId = departures.length;
+
+    function genArrival() {
+      const n = gen.arrivals++;
+      const passengers = Math.random() < 0.65;
+      const len = Math.min(7, 3 + Math.floor(n / 3) + (Math.random() < 0.5 ? 1 : 0));
+      const back = passengers ? 'guard' : 'brake';
+      const cars = [];
+      for (let i = 0; i < len - 1; i++) cars.push(pick(passengers ? PASSENGER_MIX : GOODS_MIX));
+      cars.splice(Math.floor(Math.random() * (cars.length + 1)), 0, back);
+      let track = 'S3';
+      if (passengers) {
+        gen.flip = !gen.flip;
+        track = gen.flip ? 'P1' : 'P2';
+      }
+      const at = gen.t;
+      arrivals.push({
+        id: ++nextArrivalId, at, from: pick(TOWNS), track, loco: pick(['steam', 'diesel']), cars, status: 'coming'
+      });
+      for (const type of cars) gen.pool[passengers ? 'passenger' : 'goods'].push({ type, avail: at + 3 });
+      // Trains come thicker and faster the longer you last.
+      gen.t += Math.max(4.5, 11 - n * 0.45) + rnd(-1, 1.5);
+    }
+
+    // Plan one departure out of the vehicles that are (or soon will be) in the yard.
+    function genDeparture(kind) {
+      const list = gen.pool[kind];
+      const n = gen.deps;
+      const want = Math.min(7, 3 + Math.floor(n / 3) + (Math.random() < 0.4 ? 1 : 0));
+      const back = kind === 'passenger' ? 'guard' : 'brake';
+      const backIdx = list.findIndex(v => v.type === back);
+      if (list.length < want || backIdx < 0) return false;
+      const backCar = list.splice(backIdx, 1)[0];
+      const mids = list.splice(0, want - 1);
+      // Shuffle so the new train is in a different order from how the vehicles arrived.
+      for (let i = mids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [mids[i], mids[j]] = [mids[j], mids[i]];
+      }
+      let track = 'G';
+      if (kind === 'passenger') {
+        track = ['P1', 'P2'].sort((a, b) => (gen.lastDep.get(a) || 0) - (gen.lastDep.get(b) || 0))[0];
+      }
+      const gap = Math.max(8, 18 - n * 0.8) + rnd(0, 2);
+      const ready = Math.max(backCar.avail, ...mids.map(v => v.avail));
+      const at = Math.max(ready + gap, (gen.lastDep.get(track) || 0) + 5);
+      gen.lastDep.set(track, at);
+      gen.deps++;
+      const dest = pick(TOWNS);
+      departures.push({
+        id: ++nextDepId,
+        at,
+        track,
+        dest,
+        name: kind === 'goods' ? `${dest} Goods` : `${dest} ${pick(['Express', 'Local', 'Special', 'Flyer'])}`,
+        spec: ['loco', ...mids.map(v => v.type), backCar.type],
+        status: 'waiting',
+        progress: 0,
+        stars: 0,
+        lateBy: 0
+      });
+      return true;
+    }
+
+    function extendSchedule() {
+      const before = arrivals.length + departures.length;
+      while (gen.t < G.minute - level.start + 25) genArrival();
+      for (const kind of ['passenger', 'goods']) while (genDeparture(kind));
+      if (arrivals.length + departures.length !== before) {
+        arrivals.sort((a, b) => a.at - b.at);
+        departures.sort((a, b) => a.at - b.at);
+        G.scheduleVersion++;
+      }
+    }
+
+    if (endless) extendSchedule();
 
     return G;
   }
