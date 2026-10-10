@@ -522,7 +522,7 @@
       text = `Picked up ${n} ${n === 1 ? 'vehicle' : 'vehicles'}. Now click a green track to put ${n === 1 ? 'it' : 'them'} there.`;
     } else if (game.pilot.track !== null) {
       text = 'Pip is hooked on to the train. Pick another vehicle to keep going, or click Pip to send it home.';
-    } else if (game.minute - game.level.start < 3) text = 'Click a vehicle to pick it up. Pip takes it and everything between it and the yard entrance.';
+    } else if (game.minute - game.level.start < 3) text = 'Click a vehicle to pick it up. Pip takes it and everything between it and the yard entrance. Engines drive themselves.';
     hint.textContent = text;
   }
 

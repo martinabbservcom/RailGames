@@ -285,7 +285,7 @@
       });
     }
 
-    function startHome() {
+    function startHome(then) {
       startJob({
         kind: 'home',
         from: null,
@@ -299,6 +299,7 @@
           pilot.track = null;
           pilot.u = HOME_U;
           pilot.flip = false;
+          if (then) then();
         }
       });
     }
@@ -310,13 +311,13 @@
     };
 
     // An engine runs itself from the reception road to the shed.
-    function startEngineRun(fromId, toId) {
-      const { uCouple, uOut, uFinal } = planMove(fromId, toId, 1);
+    function startEngineRun(fromId, toId, k = 1) {
+      const { uCouple, uOut, uFinal } = planMove(fromId, toId, k);
       startJob({
         kind: 'engine',
         from: fromId,
         to: toId,
-        k: 1,
+        k,
         hidePilot: true,
         pilotU: uCouple,
         track: fromId,
@@ -380,6 +381,16 @@
       const k = idx + 1;
       if (!from || from.locked || idx < 0 || idx >= from.cars.length) return false;
       if (!G.validTargets(fromId, k).includes(toId)) return false;
+      // Engines have their own power, so they don't need Pip to shunt them.
+      if (from.cars.slice(0, k).every(v => isLoco(v.type))) {
+        if (pilot.track === fromId || pilot.track === toId) {
+          // Pip is in the way: send it home first, then the engine goes.
+          startHome(() => startEngineRun(fromId, toId, k));
+        } else {
+          startEngineRun(fromId, toId, k);
+        }
+        return true;
+      }
       startPlayerMove(fromId, toId, k);
       return true;
     };
