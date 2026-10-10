@@ -38,4 +38,4 @@ The game uses no libraries. The Fredoka font is loaded from Google Fonts if onli
 ## Notes
 
 - The yard, station and timetable are entirely fictional.
-- The signalling game that used to be in the parent folder (`TrainSig`) is separate and untouched.
+- The signalling game that used to be in the parent folder (Kent Signaller) is separate and untouched.

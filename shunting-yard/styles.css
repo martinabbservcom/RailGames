@@ -120,3 +120,5 @@ button { font: inherit; cursor: pointer; }
   .board { flex: 0 0 200px; border-left: 0; border-top: 4px solid var(--sun); }
   .stars-total { display: none; }
 }
+
+.credit { margin: 18px 0 0; color: #6f6a58; font-size: 14px; }
