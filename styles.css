@@ -160,3 +160,7 @@ button { font: inherit; cursor: pointer; }
   html.is-touch .rotate-hint.dismissed { display: none; }
 }
 .round:disabled { opacity: .45; cursor: default; transform: none; }
+.card.dep { border-left: 8px solid var(--orange); }
+.card.arr { border-left: 8px solid var(--blue); }
+.card.next { box-shadow: 0 0 0 3px #ffd23f, 0 3px 0 #e6a56a; }
+.board-note .board-dot { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; box-shadow: none; }

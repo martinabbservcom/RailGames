@@ -8,8 +8,7 @@
   const wrap = $('canvas-wrap');
   const hint = $('hint');
   const toasts = $('toasts');
-  const depBoard = $('departures');
-  const arrBoard = $('arrivals');
+  const board = $('timetable');
   const STORE_KEY = 'pebblebrook-yard-stars';
 
   let levelIndex = 0;
@@ -170,38 +169,43 @@
   }
 
   function buildBoard() {
-    depBoard.replaceChildren();
-    for (const dep of game.departures) {
+    board.replaceChildren();
+    lastNext = null;
+    const rows = [
+      ...game.departures.map(dep => ({ kind: 'dep', item: dep, at: dep.at })),
+      ...game.arrivals.map(arrival => ({ kind: 'arr', item: arrival, at: arrival.at }))
+    ];
+    // Time order; at the same minute the arriving train comes first.
+    rows.sort((a, b) => a.at - b.at || (a.kind === 'arr' ? -1 : 1));
+    for (const row of rows) {
       const card = document.createElement('div');
-      card.className = 'card dep';
-      card.dataset.id = dep.id;
-      const track = game.byId.get(dep.track);
+      card.dataset.key = `${row.kind}${row.item.id}`;
       card.innerHTML = '<div class="top"><span class="time"></span><span class="name"><b></b><small></small></span><span class="chip"></span></div>';
-      card.querySelector('.time').textContent = clock(game.level.start + dep.at);
-      card.querySelector('b').textContent = dep.name;
-      card.querySelector('small').textContent = `to ${dep.dest} · ${track.name} · any engine`;
-      // Icons run left to right like the track does: back of the train first, engine last.
-      card.appendChild(consist(dep.spec, true));
-      depBoard.appendChild(card);
-    }
-    arrBoard.replaceChildren();
-    for (const arrival of game.arrivals) {
-      const card = document.createElement('div');
-      card.className = 'card arr';
-      card.dataset.id = arrival.id;
-      card.innerHTML = '<div class="top"><span class="time"></span><span class="name"><b></b><small></small></span><span class="chip"></span></div>';
-      card.querySelector('.time').textContent = clock(game.level.start + arrival.at);
-      card.querySelector('b').textContent = `From ${arrival.from}`;
-      card.querySelector('small').textContent = `${arrival.cars.length} vehicles · ${game.byId.get(arrival.track).name}`;
-      card.appendChild(consist(arrival.cars, false));
-      arrBoard.appendChild(card);
+      card.querySelector('.time').textContent = clock(game.level.start + row.at);
+      if (row.kind === 'dep') {
+        const dep = row.item;
+        card.className = 'card dep';
+        card.querySelector('b').textContent = dep.name;
+        card.querySelector('small').textContent = `Departs to ${dep.dest} · ${game.byId.get(dep.track).name} · any engine`;
+        // Icons run left to right like the track does: back of the train first, engine last.
+        card.appendChild(consist(dep.spec, true));
+      } else {
+        const arrival = row.item;
+        card.className = 'card arr';
+        card.querySelector('b').textContent = `From ${arrival.from}`;
+        card.querySelector('small').textContent = `Arrives · ${arrival.cars.length} vehicles · ${game.byId.get(arrival.track).name}`;
+        card.appendChild(consist(arrival.cars, false));
+      }
+      board.appendChild(card);
     }
     updateBoard();
   }
 
+  let lastNext = null;
   function updateBoard() {
+    let next = null;
     for (const dep of game.departures) {
-      const card = depBoard.querySelector(`[data-id="${dep.id}"]`);
+      const card = board.querySelector(`[data-key="dep${dep.id}"]`);
       if (!card) continue;
       const left = Math.round(game.level.start + dep.at - game.minute);
       let chip = left > 0 ? `in ${left} min` : left === 0 ? 'now' : `${-left} min late`;
@@ -211,9 +215,10 @@
       if (dep.status === 'cancelled') chip = 'Missed';
       card.className = `card dep status-${dep.status}${game.activeDeparture(dep.track) === dep ? ' active' : ''}`;
       card.querySelector('.chip').textContent = chip;
+      if (!next && dep.status !== 'done' && dep.status !== 'cancelled') next = card;
     }
     for (const arrival of game.arrivals) {
-      const card = arrBoard.querySelector(`[data-id="${arrival.id}"]`);
+      const card = board.querySelector(`[data-key="arr${arrival.id}"]`);
       if (!card) continue;
       const left = Math.round(game.level.start + arrival.at - game.minute);
       let chip = left > 0 ? `in ${left} min` : 'due';
@@ -223,7 +228,14 @@
       if (arrival.status === 'arrived') chip = 'Here ✓';
       card.className = `card arr status-${arrival.status}`;
       card.querySelector('.chip').textContent = chip;
+      if (arrival.status === 'coming' || arrival.status === 'arriving' || arrival.status === 'unloading') {
+        if (!next || Number(card.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING)) next = card;
+      }
     }
+    // Mark the first thing still to happen so the eye goes straight to it.
+    for (const card of board.children) card.classList.toggle('next', card === next);
+    if (next && next !== lastNext) next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    lastNext = next;
     $('undo').disabled = !game.canUndo();
     $('clock').textContent = clock(game.minute);
     $('star-count').textContent = game.stars;

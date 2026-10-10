@@ -142,8 +142,18 @@
     const departures = level.departures
       .map((d, i) => ({ ...d, id: i + 1, status: 'waiting', progress: 0, stars: 0, lateBy: 0 }))
       .sort((a, b) => a.at - b.at);
+    // Passenger trains come in at a platform so the passengers can get off; goods trains use a siding.
+    const platformFor = a => {
+      const platforms = tracks.filter(t => t.kind === 'platform' && !t.locked);
+      return platforms.find(t => t.id === a.track) || platforms[0];
+    };
     const arrivals = level.arrivals
-      .map((a, i) => ({ ...a, id: i + 1, track: a.track || 'S3', status: 'coming' }))
+      .map((a, i) => {
+        const passengers = a.cars.some(type => isPassenger(type));
+        const home = byId.get(a.track || 'S3');
+        const track = passengers && (!home || home.kind !== 'platform') ? platformFor(a) : home;
+        return { ...a, id: i + 1, track: track.id, status: 'coming' };
+      })
       .sort((a, b) => a.at - b.at);
 
     const unloadings = []; // trains standing while their passengers get off
@@ -603,6 +613,14 @@
         const n = t.cars.length;
         if (n > 1 && t.cars[n - 1].arrived && !isUnloading(t.id) && !t.locked) {
           return moveOut(t, n - 1, 'This train has arrived and is unloaded.');
+        }
+      }
+      // A train held at the signal needs its road cleared first.
+      const held = G.waitingArrival();
+      if (held) {
+        const road = byId.get(held.track);
+        if (road.cars.length > 0 && !isUnloading(road.id)) {
+          return moveOut(road, road.cars.length, `The ${held.from} train is waiting at the signal.`);
         }
       }
       // 2. Work on the next train to leave.
