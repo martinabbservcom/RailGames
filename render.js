@@ -442,11 +442,28 @@
     ctx.strokeStyle = '#d6cdb5';
     ctx.lineWidth = 20;
     ctx.lineCap = 'round';
+    const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [210, 320], [150, 240], [210, 180]]];
+    const roadAt = (seg, t) => {
+      const [p0, p1, p2, p3] = seg;
+      const u = 1 - t;
+      const f = i => u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i];
+      const g = i => 3 * u * u * (p1[i] - p0[i]) + 6 * u * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]);
+      const len = Math.hypot(g(0), g(1));
+      return { x: f(0), y: f(1), nx: -g(1) / len, ny: g(0) / len };
+    };
     ctx.beginPath();
     ctx.moveTo(-10, 560);
     ctx.bezierCurveTo(60, 520, 40, 400, 130, 360);
     ctx.bezierCurveTo(210, 320, 150, 240, 210, 180);
     ctx.stroke();
+    // Keep trees and houses off the road and the windmill.
+    for (const seg of roadSegs) {
+      for (let t = 0; t <= 1; t += 0.05) {
+        const r = roadAt(seg, t);
+        spots.push([r.x, r.y, 12]);
+      }
+    }
+    spots.push([70, 335, 48]);
     ctx.setLineDash([10, 12]);
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
@@ -466,10 +483,21 @@
     ctx.arc(55, 606, 10, 3.4, 5.4);
     ctx.stroke();
     // Houses and trees.
-    const houses = [[28, 440, 44, 30, '#ffe3a3', '#e5484d'], [150, 470, 40, 28, '#ffc2d1', '#5b6ee1'], [70, 228, 46, 32, '#cfeaff', '#e5484d'], [150, 320, 42, 30, '#d9f5c3', '#8b5cf6']];
-    for (const [x, y, w, h, wall, roof] of houses) {
-      house(ctx, x, y, w, h, wall, roof);
-      spots.push([x + w / 2, y, 34]);
+    // Houses sit just beside the road, one side or the other.
+    const houseDefs = [
+      [0, 0.25, 1, 44, 30, '#ffe3a3', '#e5484d'],
+      [0, 0.6, 1, 40, 28, '#ffc2d1', '#5b6ee1'],
+      [1, 0.15, 1, 42, 30, '#d9f5c3', '#8b5cf6'],
+      [1, 0.45, -1, 46, 32, '#cfeaff', '#e5484d'],
+      [1, 0.8, -1, 42, 30, '#ffe9b8', '#2f9e8f']
+    ];
+    for (const [si, t, side, w, h, wall, roof] of houseDefs) {
+      const r = roadAt(roadSegs[si], t);
+      const dist = 14 + Math.abs(r.nx) * (w / 2 + 6) + Math.abs(r.ny) * (h / 2 + 10);
+      const cx = r.x + side * r.nx * dist;
+      const cy = r.y + side * r.ny * dist;
+      house(ctx, cx - w / 2, cy - h / 2 + 6, w, h, wall, roof);
+      spots.push([cx, cy, 30]);
     }
     let tries = 0;
     while (spots.length < 24 && tries++ < 400) {
