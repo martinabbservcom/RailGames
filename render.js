@@ -375,7 +375,9 @@
     ctx.fillRect(x + 1.5, y + 2, 5, 3);
   }
 
-  const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [210, 320], [150, 240], [210, 180]]];
+  const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [210, 320], [150, 240], [210, 180]],
+    // Carries on up to the station and disappears behind it.
+    [[210, 180], [260, 150], [350, 118], [480, 96]]];
   const roadAt = (seg, t) => {
     const [p0, p1, p2, p3] = seg;
     const u = 1 - t;
@@ -482,6 +484,7 @@
     ctx.moveTo(-10, 560);
     ctx.bezierCurveTo(60, 520, 40, 400, 130, 360);
     ctx.bezierCurveTo(210, 320, 150, 240, 210, 180);
+    ctx.bezierCurveTo(260, 150, 350, 118, 480, 96);
     ctx.stroke();
     // Keep trees and houses off the road and the windmill.
     for (const seg of roadSegs) {
