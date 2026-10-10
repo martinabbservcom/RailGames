@@ -292,7 +292,7 @@
 
     // Where the shunting engine is when it is not mid-job: 'track' is null while it
     // waits at the signal box, otherwise it is parked coupled to the vehicles it just moved.
-    const pilot = { track: null, u: HOME_U, flip: false };
+    const pilot = { track: null, u: HOME_U, flip: false, hooked: false };
     G.pilot = pilot;
 
     // Pip starts the day parked in the engine shed road.
@@ -342,6 +342,7 @@
           pilot.track = toId;
           pilot.u = uFinal;
           pilot.flip = false;
+          pilot.hooked = true;
         }
       });
     }
@@ -360,6 +361,7 @@
           pilot.track = null;
           pilot.u = HOME_U;
           pilot.flip = false;
+          pilot.hooked = false;
           if (then) then();
         }
       });
@@ -396,6 +398,7 @@
           pilot.track = dest.id;
           pilot.u = uStop;
           pilot.flip = false;
+          pilot.hooked = false; // just parked, not coupled to anything
           if (then) then();
         }
       });
