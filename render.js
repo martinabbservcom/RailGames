@@ -375,9 +375,9 @@
     ctx.fillRect(x + 1.5, y + 2, 5, 3);
   }
 
-  const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [210, 320], [150, 240], [210, 180]],
-    // Carries on up to the station and disappears behind it.
-    [[210, 180], [260, 150], [350, 118], [480, 96]]];
+  const roadSegs = [[[-10, 560], [60, 520], [40, 400], [130, 360]], [[130, 360], [215, 320], [200, 240], [110, 210]],
+    // Winds on and leaves the board at the left edge.
+    [[110, 210], [50, 190], [20, 205], [-15, 215]]];
   const roadAt = (seg, t) => {
     const [p0, p1, p2, p3] = seg;
     const u = 1 - t;
@@ -483,8 +483,8 @@
     ctx.beginPath();
     ctx.moveTo(-10, 560);
     ctx.bezierCurveTo(60, 520, 40, 400, 130, 360);
-    ctx.bezierCurveTo(210, 320, 150, 240, 210, 180);
-    ctx.bezierCurveTo(260, 150, 350, 118, 480, 96);
+    ctx.bezierCurveTo(215, 320, 200, 240, 110, 210);
+    ctx.bezierCurveTo(50, 190, 20, 205, -15, 215);
     ctx.stroke();
     // Keep trees and houses off the road and the windmill.
     for (const seg of roadSegs) {
@@ -519,7 +519,8 @@
       [0, 0.6, 1, 40, 28, '#ffc2d1', '#5b6ee1'],
       [1, 0.15, 1, 42, 30, '#d9f5c3', '#8b5cf6'],
       [1, 0.45, -1, 46, 32, '#cfeaff', '#e5484d'],
-      [1, 0.8, -1, 42, 30, '#ffe9b8', '#2f9e8f']
+      [1, 0.7, 1, 42, 30, '#ffe9b8', '#2f9e8f'],
+      [2, 0.3, -1, 42, 30, '#e3d4ff', '#e5484d']
     ];
     for (const [si, t, side, w, h, wall, roof] of houseDefs) {
       const r = roadAt(roadSegs[si], t);
