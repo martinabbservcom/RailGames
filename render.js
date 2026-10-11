@@ -267,6 +267,29 @@
     wheel(ctx, 17, 11, 6);
   }
 
+  // An engine seen end-on, nose towards us: used halfway through a turn on the turntable.
+  function drawEngineEnd(ctx, type) {
+    const t = Y.TYPES[type];
+    box(ctx, -16, 4, 7, 12, 2, '#39435c', 1.5);
+    box(ctx, 9, 4, 7, 12, 2, '#39435c', 1.5);
+    box(ctx, -13, -14, 26, 22, 6, t.color);
+    if (type === 'steam') {
+      box(ctx, -3, -28, 6, 12, 2, '#39435c', 2);
+      box(ctx, -5, -30, 10, 4, 2, '#39435c', 2);
+      circle(ctx, 0, -7, 9.5, shade(t.color, 0.14), 2);
+    } else {
+      box(ctx, -10, -26, 20, 13, 4, shade(t.color, 0.12));
+      box(ctx, -7, -23, 14, 7, 2, '#d9f1ff', 1.5);
+    }
+    eyes(ctx, 0, -8, 4.6, 3.3, 0);
+    smile(ctx, 0, -3.5, 4.5);
+    ctx.fillStyle = t.trim;
+    ctx.fillRect(-13, 3, 26, 3);
+    circle(ctx, -9, 8.5, 2.6, '#e0e6f2', 1.5);
+    circle(ctx, 9, 8.5, 2.6, '#e0e6f2', 1.5);
+    circle(ctx, 0, 6, 2, '#fff7a8', 1);
+  }
+
   function drawVehicleBody(ctx, type, sad = false) {
     const t = Y.TYPES[type];
     if (t.kind === 'loco') drawEngine(ctx, t.color, t.trim, type, sad);
@@ -1052,14 +1075,28 @@
       // On a road that runs left the picture is turned round so it stays the right way up; an engine facing
       // left (nose-first into the shed, or heading in from the main line) is then mirrored.
       ctx.rotate(Math.cos(pose.a) < 0 ? pose.a + Math.PI : pose.a);
-      let sx = pose.v.facing === -1 ? -1 : 1;
-      if (pose.track === 'TURN') {
-        // On the turntable the engine swings round: its picture squashes flat and comes out the other way.
-        const turning = G.unloadings.find(x => x.turn && x.track === 'TURN');
-        if (turning) sx *= Math.cos(easeIO(turning.progress) * Math.PI);
-      }
-      ctx.scale(Math.abs(sx) < 0.05 ? 0.05 * (sx < 0 ? -1 : 1) : sx, 1);
       ctx.translate(0, -13);
+      const turning = pose.track === 'TURN' && G.isLoco(pose.v.type) ? G.unloadings.find(x => x.turn && x.track === 'TURN') : null;
+      const face = pose.v.facing === -1 ? -1 : 1;
+      if (turning) {
+        // The engine really turns round on the table: its nose swings out towards us, it is seen end-on
+        // halfway round, and then it comes out facing the other way.
+        const theta = easeIO(turning.progress) * Math.PI;
+        const end = clamp01((Math.sin(theta) - 0.55) / 0.3);
+        ctx.save();
+        ctx.globalAlpha = 1 - end;
+        ctx.transform(face * Math.cos(theta), 0.4 * Math.sin(theta) * face, 0, 1, 0, 0);
+        drawVehicleBody(ctx, pose.v.type, false);
+        ctx.restore();
+        if (end > 0) {
+          ctx.globalAlpha = end;
+          drawEngineEnd(ctx, pose.v.type);
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+        return;
+      }
+      ctx.scale(face, 1);
       if (extra && extra.glow) {
         path(ctx, -30, -33, 60, 56, 10);
         ctx.lineWidth = 4;
@@ -1076,7 +1113,7 @@
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
       let x = track.xMin + 8;
       // The engine shed labels sit above their engines, clear of Pip.
-      const y = track.kind === 'shed' ? track.y - 62 : track.y - 33;
+      const y = track.kind === 'shed' ? track.y - 62 : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
       const lines = [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
       if (dep) {
         const m = Math.round(dep.at + G.level.start);

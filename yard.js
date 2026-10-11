@@ -245,7 +245,7 @@
     const isEngineToken = t => t === 'loco' || (Y.TYPES[t] && Y.TYPES[t].kind === 'loco');
     // An engine fit to pull a departure: the right sort, serviced, and (with a turntable) facing the right way.
     const engineOk = (car, token) =>
-      isLoco(car.type) && (token === 'loco' || car.type === token) && !needsService(car) && (!turnLevel || car.facing === 1);
+      isLoco(car.type) && (token === 'loco' || car.type === token) && !needsService(car) && car.facing === 1;
     function formationMatches(dep, track) {
       const cars = track.cars;
       if (cars.length !== dep.spec.length) return false;
@@ -266,7 +266,7 @@
         if (!fits(i)) {
           const article = /^[aeiou]/.test(name(dep.spec[i])) ? 'an' : 'a';
           if (isLoco(front[i].type) && needsService(front[i])) return 'Engine broken down: swap it for a new one';
-          if (isLoco(front[i].type) && turnLevel && front[i].facing !== 1 && isEngineToken(dep.spec[i])) return 'Engine faces the wrong way: turn it on the turntable';
+          if (isLoco(front[i].type) && front[i].facing !== 1 && isEngineToken(dep.spec[i])) return turnLevel ? 'Engine faces the wrong way: turn it on the turntable' : 'Engine must face forward to pull the train';
           return i === 0
             ? `Needs ${article} ${name(dep.spec[i])} at the front`
             : `Vehicle ${i + 1} from the front should be ${article} ${name(dep.spec[i])}`;
@@ -338,8 +338,15 @@
       const to = byId.get(job.to);
       // An engine that has just arrived stays 'arrived' until it reaches the shed; on a siding it then runs there itself.
       if (isShed(to)) for (const v of job.cut) { v.arrived = false; v.broken = false; }
-      // Without a turntable engines simply face the way they are going: nose-first into the shed, otherwise to the right.
-      if (!turnLevel) for (const v of job.cut) if (isLoco(v.type)) v.facing = isShed(to) ? -1 : 1;
+      // Without a turntable engines turn themselves round at the shed: nose-first going in, and facing forward (right)
+      // again when they come out to work. An arriving engine keeps facing the way it came in.
+      if (!turnLevel) {
+        for (const v of job.cut) {
+          if (!isLoco(v.type)) continue;
+          if (isShed(to)) v.facing = -1;
+          else if (job.from && isShed(byId.get(job.from))) v.facing = 1;
+        }
+      }
       const moved = job.cut;
       to.cars.unshift(...moved);
       job.cut = [];
@@ -521,7 +528,7 @@
       const loco = makeVehicle(arrival.loco);
       loco.arrived = true;
       loco.service = SERVICE_MINUTES; // worn out from the run: needs servicing in the shed
-      loco.facing = turnLevel ? -1 : 1; // it came in heading left, nose first
+      loco.facing = -1; // it came in heading left, so it faces left: forward, in the direction of the train
       // The engine leads the train, so it is at the left-hand (front) end as the train runs in from the right.
       const cut = [loco, ...arrival.cars.map(makeVehicle)];
       const k = cut.length;
