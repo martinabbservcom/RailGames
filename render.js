@@ -850,7 +850,7 @@
         ctx.rotate(pose.a + Math.PI);
         ctx.scale(-1, 1);
       } else ctx.rotate(pose.a);
-      ctx.translate(0, -17);
+      ctx.translate(0, -13);
       if (extra && extra.glow) {
         path(ctx, -30, -33, 60, 56, 10);
         ctx.lineWidth = 4;
@@ -1322,7 +1322,7 @@
         ctx.rotate(pilot.a + Math.PI);
         pilotFlip = !pilotFlip;
       } else ctx.rotate(pilot.a);
-      ctx.translate(0, -17);
+      ctx.translate(0, -13);
       if (pilotFlip) ctx.scale(-1, 1);
       if (pilot.work && pilot.moving) ctx.translate(0, Math.sin(time / 45) * 0.8);
       drawPilot(ctx, time);
