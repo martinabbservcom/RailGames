@@ -142,16 +142,17 @@
     const departures = level.departures
       .map((d, i) => ({ ...d, id: i + 1, status: 'waiting', progress: 0, stars: 0, lateBy: 0 }))
       .sort((a, b) => a.at - b.at);
-    // Passenger trains come in at a platform so the passengers can get off; goods trains use a siding.
+    // Trains only ever come in from the main line on the right, never from the engine shed side.
+    // Passenger trains use a platform so the passengers can get off; goods trains use the goods road.
     const platformFor = a => {
       const platforms = tracks.filter(t => t.kind === 'platform' && !t.locked);
       return platforms.find(t => t.id === a.track) || platforms[0];
     };
+    const goodsRoad = tracks.find(t => t.kind === 'goods' && !t.locked);
     const arrivals = level.arrivals
       .map((a, i) => {
         const passengers = a.cars.some(type => isPassenger(type));
-        const home = byId.get(a.track || 'S3');
-        const track = passengers && (!home || home.kind !== 'platform') ? platformFor(a) : home;
+        const track = passengers || !goodsRoad ? platformFor(a) : goodsRoad;
         return { ...a, id: i + 1, track: track.id, status: 'coming' };
       })
       .sort((a, b) => a.at - b.at);
@@ -281,8 +282,8 @@
 
     function attach(job) {
       const to = byId.get(job.to);
-      // An engine that has just arrived stays 'arrived' (and will head for the shed) until it is moved on.
-      if (job.kind !== 'arrival') for (const v of job.cut) v.arrived = false;
+      // An engine that has just arrived stays 'arrived' until it reaches the shed; on a siding it then runs there itself.
+      if (isShed(to)) for (const v of job.cut) v.arrived = false;
       to.cars.unshift(...job.cut);
       job.cut = [];
     }
@@ -434,7 +435,7 @@
         dir: -1,
         steps: [
           { go: fromId, to: uOut, onStart: detach },
-          { go: toId, to: uFinal, onEnd: job => { for (const v of job.cut) v.arrived = false; attach(job); if (isShed(byId.get(toId))) emit('servicing'); } }
+          { go: toId, to: uFinal, onEnd: job => { attach(job); if (isShed(byId.get(toId))) emit('servicing'); } }
         ]
       });
     }
@@ -445,9 +446,12 @@
       const loco = makeVehicle(arrival.loco);
       loco.arrived = true;
       loco.service = SERVICE_MINUTES; // worn out from the run: needs servicing in the shed
-      const cut = [...arrival.cars.map(makeVehicle), loco];
+      // The engine leads the train, so it is at the left-hand (front) end as the train runs in from the right.
+      const cut = [loco, ...arrival.cars.map(makeVehicle)];
       const k = cut.length;
       const uFinal = rec.uEnd - SP / 2 - (rec.cars.length + k) * SP;
+      // The train runs in from the main line off the right-hand edge of the screen.
+      const uStart = rec.uStraight + (W + 60 - rec.straightX);
       arrival.status = 'arriving';
       undoState = null;
       startJob({
@@ -457,9 +461,9 @@
         k,
         hidePilot: true,
         cut,
-        pilotU: -(L0.x + 80 + k * SP),
+        pilotU: uStart,
         track: rec.id,
-        dir: 1,
+        dir: -1,
         steps: [{ go: rec.id, to: uFinal, onEnd: attach }],
         onDone: () => {
           // Give the passengers a little time to get off before the train can be moved.
@@ -512,10 +516,10 @@
       return due <= 0 ? 'green' : due < 3 ? 'amber' : 'red';
     };
 
-    // An arrived engine that has been uncovered (its coaches are gone) drives itself to the shed.
+    // An arrived engine that has been taken into a siding with its train is uncoupled and drives itself to the shed.
     function readyLoco() {
       if (!freeShed()) return null;
-      return tracks.find(t => !isShed(t) && t.cars.length > 0 && t.cars[0].arrived === true && !isUnloading(t.id)) || null;
+      return tracks.find(t => t.kind === 'siding' && t.cars.length > 0 && t.cars[0].arrived === true && !isUnloading(t.id)) || null;
     }
 
     // The next train due in, if the road it needs is clear. Trains arrive in timetable order.
@@ -556,8 +560,8 @@
       const worn = cut.some(needsService);
       return tracks
         .filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
-        // Worn engines may only go to the shed (and only by themselves).
-        .filter(t => !worn || (isShed(t) && cut.every(v => isLoco(v.type))))
+        // A worn engine alone may only go to the shed; hauling a train it may only go to a siding.
+        .filter(t => !worn || (cut.every(v => isLoco(v.type)) ? isShed(t) : t.kind === 'siding'))
         .map(t => t.id);
     };
 
@@ -623,7 +627,8 @@
         return id ? byId.get(id) : null;
       };
       const moveOut = (track, k, why) => {
-        const to = dump(k, track.id);
+        // A train still hauled by its tired engine must go to a siding.
+        const to = track.cars.slice(0, k).some(needsService) ? ['S1', 'S2', 'S3'].map(id => byId.get(id)).find(t => t && !t.locked && t.id !== track.id && t.cars.length + k <= t.cap) : dump(k, track.id);
         if (!to) return { text: `${why} There is no room to move it, so free up a siding first.` };
         const what = k === 1 ? `the ${Y.TYPES[track.cars[0].type].name.toLowerCase()}` : `the first ${k} vehicles`;
         return { text: `${why} Move ${what} from ${track.name} to ${to.name}.`, track: track.id, idx: k - 1, to: to.id };
@@ -632,8 +637,8 @@
       // 1. A train that has arrived and been unloaded should be moved out of the way.
       for (const t of tracks) {
         const n = t.cars.length;
-        if (n > 1 && t.cars[n - 1].arrived && !isUnloading(t.id) && !t.locked) {
-          return moveOut(t, n - 1, 'This train has arrived and is unloaded.');
+        if (n > 1 && t.kind !== 'siding' && t.kind !== 'shed' && t.cars[0].arrived && !isUnloading(t.id) && !t.locked) {
+          return moveOut(t, n, 'This train has arrived and is unloaded. Take it into a siding, where the engine can leave for the shed.');
         }
       }
       // A train held at the signal needs its road cleared first.
@@ -900,7 +905,7 @@
       const cars = [];
       for (let i = 0; i < len - 1; i++) cars.push(pick(passengers ? PASSENGER_MIX : GOODS_MIX));
       cars.splice(Math.floor(Math.random() * (cars.length + 1)), 0, back);
-      let track = 'S3';
+      let track = 'G';
       if (passengers) {
         gen.flip = !gen.flip;
         track = gen.flip ? 'P1' : 'P2';

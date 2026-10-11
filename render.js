@@ -846,7 +846,7 @@
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
         lines.push({ text: `${dep.name}  ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, size: 10, color: '#d9486a' });
-        const arrived = track.cars.length > 0 && track.cars[track.cars.length - 1].arrived;
+        const arrived = track.cars.length > 0 && track.cars[0].arrived;
         const note = arrived || G.isUnloading(track.id) ? '' : G.formationHint(dep, track);
         if (note) lines.push({ text: note, size: 10, color: note === 'Perfect!' ? '#1f9d5b' : '#b5651d' });
       }
@@ -939,7 +939,8 @@
       const used = new Set(G.arrivals.map(a => a.track));
       for (const track of G.tracks) {
         if (track.locked || !used.has(track.id)) continue;
-        signalPost(track.straightX - 44, track.y - 16, G.entrySignal(track.id));
+        // Trains come in from the right, so the entry signal stands at the right-hand end of the road.
+        signalPost(track.xEnd + 58, track.y + 26, G.entrySignal(track.id));
       }
     }
 

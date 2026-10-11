@@ -367,7 +367,7 @@
       } else {
         selected = { track: car.track, idx: car.idx };
         Y.sound.pick();
-        if (game.cutNeedsService(car.track, car.idx + 1)) toast('That engine needs servicing, so it can only go to the engine shed.');
+        if (game.cutNeedsService(car.track, car.idx + 1)) toast('That engine is tired: on its own it can only go to the engine shed, and with its train only to a siding.');
       }
       return;
     }
@@ -386,7 +386,7 @@
       if (t.locked) message = 'That track is closed today.';
       else if (game.isUnloading(trackId)) message = game.unloadingKind(trackId) === 'goods' ? 'Goods are still being unloaded there. Please wait.' : 'Passengers are still getting off there.';
       else if (game.cutNeedsService(selected.track, selected.idx + 1) && t.kind !== 'shed') {
-        message = 'That engine needs servicing, so it can only go to an engine shed.';
+        message = 'A tired engine can only go to an engine shed on its own, or to a siding with its train.';
       }
       toast(message, 'bad');
       return;

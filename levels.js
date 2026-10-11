@@ -22,8 +22,9 @@
   // with 'loco' (any engine). Track lists in the game run from the yard entrance
   // (left) to the far end (right), so the front of a train is the last vehicle.
   //
-  // `arrivals[].track` is the road the train comes in on: 'S3' (Siding 3, the default) or a
-  // platform. Trains carrying passengers always use a platform; goods trains use a siding. `cars` are listed from the yard entrance end once the train has been pulled in;
+  // `arrivals[].track` is the road the train comes in on: a platform ('P1'/'P2') or the goods road 'G'.
+  // Trains always arrive from the main line on the right, never from the engine shed side.
+  // Trains carrying passengers always use a platform; goods trains use the goods road. `cars` are listed from the yard entrance end once the train has been pulled in;
   // the engine leads, so it ends up at the far end. The road must be empty or the train waits
   // at the signal. Times are minutes after the level starts.
   Y.LEVELS = [
@@ -103,7 +104,7 @@
       arrivals: [
         { at: 0, from: 'Hillbury', track: 'P1', loco: 'diesel', cars: ['coach', 'guard', 'coach', 'coach'] },
         { at: 4, from: 'Marshford', track: 'P2', loco: 'steam', cars: ['first', 'buffet', 'coach', 'guard'] },
-        { at: 10, from: 'Dockside', track: 'S3', loco: 'diesel', cars: ['box', 'box', 'logs', 'brake'] },
+        { at: 10, from: 'Dockside', track: 'G', loco: 'diesel', cars: ['box', 'box', 'logs', 'brake'] },
         { at: 20, from: 'Lakeside', track: 'P2', loco: 'steam', cars: ['coach', 'coach', 'guard', 'first'] },
         { at: 30, from: 'Castle Hill', track: 'P1', loco: 'diesel', cars: ['coach', 'buffet', 'coach', 'guard'] }
       ],
