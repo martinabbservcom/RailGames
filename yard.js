@@ -334,20 +334,22 @@
     function detach(job) {
       const from = byId.get(job.from);
       job.cut = from.cars.splice(0, job.k);
+      // Every road is joined to the spine so that an engine has to reverse at the bottom of the yard to get from one
+      // road to the next. Going between the right-hand roads it keeps its facing, but the engine shed is on the left,
+      // so an engine that goes in or comes out of the shed ends up facing the other way round. Arriving facing left,
+      // it backs into the shed facing right, and comes out facing left again, the wrong way for the main line, so it
+      // has to be turned on the turntable. (Days without a turntable simply fix this up for the player.)
+      // The change is made as the engine sets off, so it is seen going the right way: forward out of the shed when it
+      // will be facing right, backing in or out when it is facing left.
+      if (isShed(from) !== isShed(byId.get(job.to))) {
+        for (const v of job.cut) if (isLoco(v.type)) v.facing = turnLevel ? -v.facing : 1;
+      }
     }
 
     function attach(job) {
       const to = byId.get(job.to);
       // An engine that has just arrived stays 'arrived' until it reaches the shed; on a siding it then runs there itself.
       if (isShed(to)) for (const v of job.cut) { v.arrived = false; v.broken = false; }
-      // Every road is joined to the spine so that an engine has to reverse at the bottom of the yard to get from one
-      // road to the next. Going between the right-hand roads it keeps its facing, but the engine shed is on the left,
-      // so an engine that goes in or comes out of the shed ends up facing the other way round. Arriving facing left,
-      // it backs into the shed facing right, and comes out facing left again, the wrong way for the main line, so it
-      // has to be turned on the turntable. (Days without a turntable simply fix this up for the player.)
-      if (job.from && isShed(to) !== isShed(byId.get(job.from))) {
-        for (const v of job.cut) if (isLoco(v.type)) v.facing = turnLevel ? -v.facing : 1;
-      }
       const moved = job.cut;
       to.cars.unshift(...moved);
       job.cut = [];
