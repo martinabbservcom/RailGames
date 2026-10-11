@@ -769,6 +769,74 @@
       }
     }
 
+    // A passenger plane now and then crosses the sky, trailing a thin white vapour trail.
+    let plane = null;
+    let nextPlane = null;
+
+    function drawPlane(p) {
+      const trail = ctx.createLinearGradient(p.x, 0, p.x - p.dir * 160, 0);
+      trail.addColorStop(0, 'rgba(255,255,255,.75)');
+      trail.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = trail;
+      ctx.fillRect(Math.min(p.x, p.x - p.dir * 160), p.y + 3, 160, 3);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(p.dir * p.scale, p.scale);
+      // Far wing, tail fin, then the body, near wing and engine on top.
+      ctx.beginPath();
+      ctx.moveTo(-2, -4);
+      ctx.lineTo(8, -4);
+      ctx.lineTo(-2, -13);
+      ctx.lineTo(-10, -13);
+      ctx.closePath();
+      ctx.fillStyle = '#b9d4f2';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-22, -4);
+      ctx.lineTo(-30, -19);
+      ctx.lineTo(-17, -19);
+      ctx.lineTo(-10, -4);
+      ctx.closePath();
+      ctx.fillStyle = '#e5484d';
+      ctx.fill();
+      ctx.stroke();
+      box(ctx, -28, -6, 56, 13, 6.5, '#fff', 2);
+      box(ctx, 17, -4, 8, 5, 2, '#4d96ff', 1.5);
+      for (let x = -20; x <= 10; x += 6) circle(ctx, x, -0.5, 1.7, '#4d96ff');
+      ctx.fillStyle = '#e5484d';
+      ctx.fillRect(-27, 3, 52, 2);
+      ctx.beginPath();
+      ctx.moveTo(2, 4);
+      ctx.lineTo(12, 4);
+      ctx.lineTo(-6, 17);
+      ctx.lineTo(-16, 17);
+      ctx.closePath();
+      ctx.fillStyle = '#dcebfb';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      box(ctx, -5, 11, 9, 5, 2.5, '#8a96ab', 1.5);
+      ctx.restore();
+    }
+
+    function updatePlane(time, dt) {
+      if (nextPlane === null) nextPlane = time + 6000 + Math.random() * 12000;
+      if (!plane && time >= nextPlane) {
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        plane = { x: dir > 0 ? -90 : G.W + 90, y: 22 + Math.random() * 56, dir, speed: 70 + Math.random() * 40, scale: 0.85 + Math.random() * 0.35 };
+      }
+      if (!plane) return;
+      plane.x += plane.dir * plane.speed * dt;
+      drawPlane(plane);
+      if ((plane.dir > 0 && plane.x > G.W + 220) || (plane.dir < 0 && plane.x < -220)) {
+        plane = null;
+        nextPlane = time + 25000 + Math.random() * 45000;
+      }
+    }
+
     function windmill(time) {
       const x = 60;
       const y = 290;
@@ -1259,7 +1327,8 @@
         const x = ((c[0] + time / (60 + i * 25)) % (G.W + 200)) - 100;
         cloud(x, c[1], c[2]);
       }
-      // Clouds drift behind the station building.
+      updatePlane(time, dt);
+      // Clouds (and planes) drift behind the station building.
       ctx.drawImage(scenery, 686 * scale, 2 * scale, 278 * scale, 120 * scale, 686, 2, 278, 120);
       windmill(time);
       stationClock();
