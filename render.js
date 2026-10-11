@@ -360,12 +360,25 @@
       const bl = Math.hypot(b.x - bd.x, b.y - bd.y) || 1;
       for (let u = start; u < track.uEnd + 40; u += 13) {
         const p = pointAt(track, u);
-        if (u > track.uBranch && Math.abs(((p.x - b.x) * (b.y - bd.y) - (p.y - b.y) * (b.x - bd.x)) / bl) < 13) continue;
-        const nx = -Math.sin(p.a) * 10;
-        const ny = Math.cos(p.a) * 10;
+        const ux = -Math.sin(p.a);
+        const uy = Math.cos(p.a);
+        // Near the main line a branch sleeper is shortened to the outer side, so there is no gap
+        // in the sleepers and they don't poke across the main line.
+        let inner = 10;
+        let outer = 10;
+        if (u > track.uBranch) {
+          const d = ((p.x - b.x) * (b.y - bd.y) - (p.y - b.y) * (b.x - bd.x)) / bl;
+          if (Math.abs(d) < 13) {
+            const s = d >= 0 ? 1 : -1;
+            const away = (ux * (b.y - bd.y) - uy * (b.x - bd.x)) * s >= 0 ? 1 : -1;
+            // Short side is toward the main line.
+            if (away > 0) inner = 6;
+            else outer = 6;
+          }
+        }
         ctx.beginPath();
-        ctx.moveTo(p.x - nx, p.y - ny);
-        ctx.lineTo(p.x + nx, p.y + ny);
+        ctx.moveTo(p.x - ux * inner, p.y - uy * inner);
+        ctx.lineTo(p.x + ux * outer, p.y + uy * outer);
         ctx.stroke();
       }
       return;
