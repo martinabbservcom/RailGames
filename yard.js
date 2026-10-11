@@ -157,7 +157,7 @@
     const freeShed = () => sheds.find(t => t.cars.length < t.cap) || null;
     for (const type of level.shed) {
       const engine = makeVehicle(type);
-      engine.facing = -1; // engines wait in the shed nose-first
+      engine.facing = 1; // engines wait in the shed facing right, ready to come out
       (freeShed() || sheds[0]).cars.push(engine);
     }
     for (const [id, list] of Object.entries(level.initial)) {
@@ -332,21 +332,17 @@
     function detach(job) {
       const from = byId.get(job.from);
       job.cut = from.cars.splice(0, job.k);
+      // An engine backs into the shed, so it waits there facing right. Taken out again it faces the wrong way for the
+      // main line: with a turntable it has to be turned round before it can lead a train (without one it just turns itself).
+      if (isShed(from)) for (const v of job.cut) if (isLoco(v.type)) v.facing = turnLevel ? -1 : 1;
     }
 
     function attach(job) {
       const to = byId.get(job.to);
       // An engine that has just arrived stays 'arrived' until it reaches the shed; on a siding it then runs there itself.
       if (isShed(to)) for (const v of job.cut) { v.arrived = false; v.broken = false; }
-      // Without a turntable engines turn themselves round at the shed: nose-first going in, and facing forward (right)
-      // again when they come out to work. An arriving engine keeps facing the way it came in.
-      if (!turnLevel) {
-        for (const v of job.cut) {
-          if (!isLoco(v.type)) continue;
-          if (isShed(to)) v.facing = -1;
-          else if (job.from && isShed(byId.get(job.from))) v.facing = 1;
-        }
-      }
+      // An engine backs into the shed (arriving facing left), so it waits there facing right.
+      if (isShed(to)) for (const v of job.cut) if (isLoco(v.type)) v.facing = 1;
       const moved = job.cut;
       to.cars.unshift(...moved);
       job.cut = [];
@@ -810,7 +806,8 @@
           const match = isEngineToken(need) ? isLoco(v.type) && (need === 'loco' || v.type === need) : v.type === need;
           const worn = isShed(t) ? needsService(v) : t.cars.slice(0, idx + 1).some(needsService);
           if (!match || worn) return;
-          if (turnLevel && isEngineToken(need) && v.facing !== 1) {
+          // Engines come out of the shed facing the wrong way, so one waiting in the shed counts as needing a turn.
+          if (turnLevel && isEngineToken(need) && (isShed(t) ? true : v.facing !== 1)) {
             // Right sort of engine, wrong way round: it can be turned if it is alone or waiting in the shed.
             if (!turnCand && (isShed(t) || (idx === 0 && t.cars.length === 1))) turnCand = { t, idx };
             return;
