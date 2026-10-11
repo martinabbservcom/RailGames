@@ -374,7 +374,6 @@
 
   function hitTrack(pt) {
     for (const track of game.tracks) {
-      if (track.kind === 'turntable' && track.locked) continue;
       if (pt.y >= track.y - 30 && pt.y <= track.y + 14 && pt.x >= track.xMin - 10 && pt.x <= track.xMax + 30) return track;
     }
     return null;
@@ -461,11 +460,6 @@
         return;
       }
       if (selected && selected.track === car.track && selected.idx === car.idx) {
-        // Clicking the engine on the turntable again turns it round again, in case it was turned by mistake.
-        if (game.byId.get(car.track).kind === 'turntable' && game.turnAgain(car.track)) {
-          Y.sound.toot();
-          return;
-        }
         selected = null;
         Y.sound.drop();
       } else if (selected && selected.track !== car.track && targets().includes(car.track)) {
@@ -477,7 +471,6 @@
         const from = game.byId.get(car.track);
         selected = { track: car.track, idx: car.idx };
         Y.sound.pick();
-        if (from.kind === 'turntable') toast('Click the engine again to turn it round the other way, or click a road to send it there.');
         const engineOnly = from.cars.slice(0, car.idx + 1).every(v => game.isLoco(v.type));
         if (game.cutNeedsService(car.track, car.idx + 1) && engineOnly) {
           toast(from.kind !== 'shed' && from.cars.length > car.idx + 1
@@ -500,7 +493,6 @@
 
   function unloadMessage(trackId, there) {
     const kind = game.unloadingKind(trackId);
-    if (kind === 'turn') return 'The turntable is turning. One moment!';
     if (kind === 'goods') return there ? 'Goods are still being unloaded there. Please wait.' : 'Goods are still being unloaded. Please wait.';
     return there ? 'Passengers are still getting off there.' : 'Passengers are still getting off. One moment!';
   }
@@ -689,10 +681,6 @@
         }
         case 'weather':
           toast({ rain: 'Rain is coming in. Wet rails make derailments more likely.', fog: 'Fog is rolling in. Signals are more likely to fail.', cloudy: 'Clouds are gathering.', clear: 'The weather is clearing up.' }[event.kind]);
-          break;
-        case 'turned':
-          Y.sound.ding();
-          toast('The engine has been turned round and faces the right way.', 'good');
           break;
         case 'servicing':
           toast('The engine is being serviced in the shed.');

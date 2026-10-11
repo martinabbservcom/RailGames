@@ -32,9 +32,7 @@
     // A second shed road on the other side of the shed building.
     { id: 'SHED2', name: 'Engine shed 1', y: 485, xEnd: 26, through: false, kind: 'shed', side: 'left' },
     // Pip's own little siding, just big enough for the shunting engine, so Pip never has to share a shed road.
-    { id: 'PIP', name: "Pip's siding", y: 626, xEnd: 108, through: false, kind: 'pip', side: 'left' },
-    // The turntable: an engine on its own can be turned round here (levels with `turntable: true`).
-    { id: 'TURN', name: 'Turntable', y: 600, xEnd: 470, through: false, kind: 'turntable' }
+    { id: 'PIP', name: "Pip's siding", y: 626, xEnd: 108, through: false, kind: 'pip', side: 'left' }
   ];
 
   const spinePoint = y => ({ x: L0.x + (L0.y - y) * SPINE_K, y });
@@ -140,7 +138,6 @@
     SERVICE_MINUTES = up.has('service') ? 3 : 5;
     UNLOAD_SECONDS = up.has('unload') ? 5 : 9;
     CANCEL_AFTER = up.has('grace') ? 9 : 6;
-    const turnLevel = !!level.turntable; // engines have a facing and must be turned on the turntable
     const PULL_LIMIT = level.pullLimit || 0; // vehicles one engine can pull (0 = no limit)
     const tracks = TRACK_DEFS.map(buildTrack);
     const byId = new Map(tracks.map(track => [track.id, track]));
@@ -157,9 +154,7 @@
     const freeShed = () => sheds.find(t => t.cars.length < t.cap) || null;
     for (const type of level.shed) {
       const engine = makeVehicle(type);
-      // The engines already in the shed at the start of the day face left, so they come out facing right and are
-      // ready to use straight away (a small help at first). Engines that arrive later are different, see attach().
-      engine.facing = -1;
+      engine.facing = -1; // engines in the shed are nose-in, facing left
       (freeShed() || sheds[0]).cars.push(engine);
     }
     for (const [id, list] of Object.entries(level.initial)) {
@@ -222,7 +217,6 @@
       freeplay: !!level.freeplay,
       maxStars: departures.reduce((sum, d) => sum + 3 + specialBonus(d), 0),
       stats: { sent: 0, onTime: 0, lateMinutes: 0, missed: 0, breakdowns: 0, derailments: 0, recovered: 0, signalFailures: 0, trackWorks: 0, arrivals: 0, specials: 0, bonusStars: 0 },
-      turnLevel,
       pullLimit: PULL_LIMIT,
       pointAt,
       slotU,
@@ -241,13 +235,12 @@
     let safeDepartures = 0; // trains that have left without a breakdown since the last one
     const BREAKDOWN_DELAY = 4; // extra game minutes given to a train whose engine broke down
     const RECOVER_SECONDS = up.has('crew') ? 14 : 24; // real seconds the recovery crane needs once called, at 1x
-    const TURN_SECONDS = 3.5; // real seconds the turntable takes to turn an engine round
 
     // ---- Formations -----------------------------------------------------------
     const isEngineToken = t => t === 'loco' || (Y.TYPES[t] && Y.TYPES[t].kind === 'loco');
-    // An engine fit to pull a departure: the right sort, serviced, and (with a turntable) facing the right way.
+    // An engine fit to pull a departure: the right sort, and serviced.
     const engineOk = (car, token) =>
-      isLoco(car.type) && (token === 'loco' || car.type === token) && !needsService(car) && car.facing === 1;
+      isLoco(car.type) && (token === 'loco' || car.type === token) && !needsService(car);
     function formationMatches(dep, track) {
       const cars = track.cars;
       if (cars.length !== dep.spec.length) return false;
@@ -268,7 +261,6 @@
         if (!fits(i)) {
           const article = /^[aeiou]/.test(name(dep.spec[i])) ? 'an' : 'a';
           if (isLoco(front[i].type) && needsService(front[i])) return 'Engine broken down: swap it for a new one';
-          if (isLoco(front[i].type) && front[i].facing !== 1 && isEngineToken(dep.spec[i])) return turnLevel ? 'Engine faces the wrong way: turn it on the turntable' : 'Engine must face forward to pull the train';
           return i === 0
             ? `Needs ${article} ${name(dep.spec[i])} at the front`
             : `Vehicle ${i + 1} from the front should be ${article} ${name(dep.spec[i])}`;
@@ -315,6 +307,12 @@
         step.dur = Math.max(0.35, Math.abs(step.to - step.from) / PILOT_SPEED);
       }
       if (step.onStart) step.onStart(job);
+      if (step.go) {
+        // An engine faces the way it is going, so it looks right whichever way it drives.
+        const road = byId.get(step.go);
+        const dx = pointAt(road, step.to).x - pointAt(road, step.from).x;
+        if (Math.abs(dx) > 2) for (const v of job.cut) if (isLoco(v.type)) v.facing = dx < 0 ? -1 : 1;
+      }
     }
 
     function stepJob(dt) {
@@ -334,16 +332,6 @@
     function detach(job) {
       const from = byId.get(job.from);
       job.cut = from.cars.splice(0, job.k);
-      // Every road is joined to the spine so that an engine has to reverse at the bottom of the yard to get from one
-      // road to the next. Going between the right-hand roads it keeps its facing, but the engine shed is on the left,
-      // so an engine that goes in or comes out of the shed ends up facing the other way round. Arriving facing left,
-      // it backs into the shed facing right, and comes out facing left again, the wrong way for the main line, so it
-      // has to be turned on the turntable. (Days without a turntable simply fix this up for the player.)
-      // The change is made as the engine sets off, so it is seen going the right way: forward out of the shed when it
-      // will be facing right, backing in or out when it is facing left.
-      if (isShed(from) !== isShed(byId.get(job.to))) {
-        for (const v of job.cut) if (isLoco(v.type)) v.facing = turnLevel ? -v.facing : 1;
-      }
     }
 
     function attach(job) {
@@ -353,10 +341,6 @@
       const moved = job.cut;
       to.cars.unshift(...moved);
       job.cut = [];
-      if (to.kind === 'turntable' && moved.length === 1 && isLoco(moved[0].type)) {
-        unloadings.push({ turn: true, track: to.id, t: 0, progress: 0 });
-        emit('turning', { track: to.id });
-      }
     }
 
     function planMove(fromId, toId, k) {
@@ -531,7 +515,7 @@
       const loco = makeVehicle(arrival.loco);
       loco.arrived = true;
       loco.service = SERVICE_MINUTES; // worn out from the run: needs servicing in the shed
-      loco.facing = -1; // it came in heading left, so it faces left: forward, in the direction of the train
+      loco.facing = -1; // it comes in heading left, so it faces left
       // The engine leads the train, so it is at the left-hand (front) end as the train runs in from the right.
       const cut = [loco, ...arrival.cars.map(makeVehicle)];
       const k = cut.length;
@@ -577,7 +561,6 @@
     G.unloadingKind = trackId => {
       const u = unloadings.find(x => x.track === trackId);
       if (!u) return null;
-      if (u.turn) return 'turn';
       if (u.derail) return 'derail';
       return u.arrival.cars.some(type => isPassenger(type)) ? 'passengers' : 'goods';
     };
@@ -585,16 +568,6 @@
     function updateUnloading(dt) {
       for (let i = unloadings.length - 1; i >= 0; i--) {
         const u = unloadings[i];
-        if (u.turn) {
-          u.t += dt;
-          u.progress = Math.min(1, u.t / TURN_SECONDS);
-          if (u.progress >= 1) {
-            unloadings.splice(i, 1);
-            for (const v of byId.get(u.track).cars) if (isLoco(v.type)) v.facing = -v.facing;
-            emit('turned', { track: u.track });
-          }
-          continue;
-        }
         // A derailed train stands until the player calls the recovery crew; then the crew takes a while.
         if (u.derail && !u.called) continue;
         u.t += dt;
@@ -664,7 +637,7 @@
     // A road that already has a serviced engine at its front, forming a new train. A train still hauled by its
     // tired engine may join it (the tired engine ends up at the back, from where it can go to the shed).
     const hasLeadEngine = t =>
-      t.kind !== 'shed' && t.kind !== 'pip' && t.kind !== 'turntable' && t.cars.length > 0 &&
+      t.kind !== 'shed' && t.kind !== 'pip' && t.cars.length > 0 &&
       isLoco(t.cars[t.cars.length - 1].type) && !needsService(t.cars[t.cars.length - 1]);
 
     G.validTargets = (fromId, k) => {
@@ -677,8 +650,6 @@
       const worn = cut.some(needsService);
       return tracks
         .filter(t => !t.locked && t.kind !== 'pip' && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
-        // The turntable takes one serviced engine on its own.
-        .filter(t => t.kind !== 'turntable' || (turnLevel && cut.length === 1 && isLoco(cut[0].type) && !worn))
         // A worn engine alone may only go to the shed; hauling a train it may only go to a siding.
         .filter(t => !worn || (cut.every(v => isLoco(v.type)) ? isShed(t) : t.kind === 'siding' || hasLeadEngine(t)))
         .map(t => t.id);
@@ -790,12 +761,6 @@
         if (front.length > 1) return moveOut(track, front.length - 1, `The engine on ${track.name} has broken down. Move the train off it first, then it can go to the shed.`);
         return { text: `The broken engine on ${track.name} will run to the shed. Then fit a serviced engine at the front.` };
       }
-      if (front.length && isLoco(front[0].type) && turnLevel && front[0].facing !== 1 && isEngineToken(dep.spec[0])) {
-        // The engine at the front faces the wrong way: it has to go round the turntable.
-        const turn = byId.get('TURN');
-        if (front.length > 1) return moveOut(track, front.length - 1, `The engine on ${track.name} faces the wrong way. Move the train off it first, then turn the engine.`);
-        if (turn && !turn.locked && turn.cars.length === 0) return { text: `The engine on ${track.name} faces the wrong way. Turn it on the turntable.`, track: track.id, idx: 0, to: 'TURN' };
-      }
       const fits = i => (isEngineToken(dep.spec[i]) ? engineOk(front[i], dep.spec[i]) : front[i].type === dep.spec[i]);
       for (let i = 0; i < Math.min(front.length, dep.spec.length); i++) {
         if (!fits(i)) return moveOut(track, front.length - i, `Vehicle ${i + 1} on ${track.name} is wrong.`);
@@ -806,29 +771,16 @@
       if (front.length === dep.spec.length) return { text: `${dep.name} is built correctly. It leaves at its time.` };
       const need = dep.spec[front.length];
       let best = null;
-      let turnCand = null;
       for (const t of tracks) {
         if (t.id === track.id || t.locked || isUnloading(t.id)) continue;
         t.cars.forEach((v, idx) => {
           const match = isEngineToken(need) ? isLoco(v.type) && (need === 'loco' || v.type === need) : v.type === need;
           const worn = isShed(t) ? needsService(v) : t.cars.slice(0, idx + 1).some(needsService);
           if (!match || worn) return;
-          // Coming out of the shed flips an engine, so one in the shed is fit to use if it faces left.
-          if (turnLevel && isEngineToken(need) && (isShed(t) ? v.facing !== -1 : v.facing !== 1)) {
-            // Right sort of engine, wrong way round: it can be turned if it is alone or waiting in the shed.
-            if (!turnCand && (isShed(t) || (idx === 0 && t.cars.length === 1))) turnCand = { t, idx };
-            return;
-          }
           const carry = isShed(t) ? 0 : idx;
           const score = carry * 10 + (isShed(t) ? 0 : 1);
           if (!best || score < best.score) best = { t, idx, carry, score };
         });
-      }
-      if (!best && turnCand) {
-        const turn = byId.get('TURN');
-        if (turn && !turn.locked && turn.cars.length === 0) {
-          return { text: `${dep.name} needs ${name(need)} facing the right way. Turn one on the turntable first.`, track: turnCand.t.id, idx: turnCand.idx, to: 'TURN' };
-        }
       }
       if (!best) {
         const servicing = isEngineToken(need) && tracks.some(t => t.cars.some(needsService));
@@ -984,6 +936,7 @@
       G.sent++;
       G.stars += dep.stars;
       const cars = track.cars.splice(0);
+      for (const v of cars) v.facing = 1; // it leaves heading right
       // With a signal failure on the road, the train has to creep out.
       const slow = track.signalFailedUntil > G.minute;
       G.leaving.push({ track: track.id, cars, base: slotU(track, 0, cars.length) - SP, v: 0, dep, slow });
@@ -1220,15 +1173,6 @@
       if (!u) return false;
       u.called = true;
       emit('recovering', { arrival: u.arrival, track: trackId });
-      return true;
-    };
-    // Turn the engine on the turntable round again (in case it was turned by mistake).
-    G.turnAgain = trackId => {
-      const t = byId.get(trackId);
-      if (!t || t.kind !== 'turntable' || t.cars.length !== 1 || !isLoco(t.cars[0].type) || isUnloading(trackId)) return false;
-      undoState = null;
-      unloadings.push({ turn: true, track: trackId, t: 0, progress: 0 });
-      emit('turning', { track: trackId });
       return true;
     };
     G.isDerailed = trackId => unloadings.some(u => u.derail && u.track === trackId);

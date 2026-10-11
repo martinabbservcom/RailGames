@@ -267,29 +267,6 @@
     wheel(ctx, 17, 11, 6);
   }
 
-  // An engine seen end-on, nose towards us: used halfway through a turn on the turntable.
-  function drawEngineEnd(ctx, type) {
-    const t = Y.TYPES[type];
-    box(ctx, -16, 4, 7, 12, 2, '#39435c', 1.5);
-    box(ctx, 9, 4, 7, 12, 2, '#39435c', 1.5);
-    box(ctx, -13, -14, 26, 22, 6, t.color);
-    if (type === 'steam') {
-      box(ctx, -3, -28, 6, 12, 2, '#39435c', 2);
-      box(ctx, -5, -30, 10, 4, 2, '#39435c', 2);
-      circle(ctx, 0, -7, 9.5, shade(t.color, 0.14), 2);
-    } else {
-      box(ctx, -10, -26, 20, 13, 4, shade(t.color, 0.12));
-      box(ctx, -7, -23, 14, 7, 2, '#d9f1ff', 1.5);
-    }
-    eyes(ctx, 0, -8, 4.6, 3.3, 0);
-    smile(ctx, 0, -3.5, 4.5);
-    ctx.fillStyle = t.trim;
-    ctx.fillRect(-13, 3, 26, 3);
-    circle(ctx, -9, 8.5, 2.6, '#e0e6f2', 1.5);
-    circle(ctx, 9, 8.5, 2.6, '#e0e6f2', 1.5);
-    circle(ctx, 0, 6, 2, '#fff7a8', 1);
-  }
-
   function drawVehicleBody(ctx, type, sad = false) {
     const t = Y.TYPES[type];
     if (t.kind === 'loco') drawEngine(ctx, t.color, t.trim, type, sad);
@@ -681,23 +658,10 @@
     }
 
     // Track beds and buffers.
-    const shown = game.tracks.filter(track => !(track.kind === 'turntable' && track.locked));
     for (const layer of ['ballast', 'ballast2', 'sleepers', 'rails']) {
-      for (const track of shown) drawTrackBed(ctx, track, game.pointAt, layer);
+      for (const track of game.tracks) drawTrackBed(ctx, track, game.pointAt, layer);
     }
-    const turn = game.byId.get('TURN');
-    if (turn && !turn.locked) {
-      // The turntable pit: a round hole in the ground that the rails run across (the bridge itself turns, see drawTurntableBridge).
-      const c = game.pointAt(turn, turn.uEnd - game.SP / 2);
-      circle(ctx, c.x, c.y, 38, '#4f586d', 2.5);
-      circle(ctx, c.x, c.y, 32, '#69738b', 1.5);
-      ctx.strokeStyle = 'rgba(255,255,255,.16)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, 26, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    for (const track of shown) {
+    for (const track of game.tracks) {
       if (!track.through) bufferStop(ctx, track.side === 'left' ? track.xEnd - 10 : track.xEnd + 2, track.y);
     }
 
@@ -1076,26 +1040,7 @@
       // left (nose-first into the shed, or heading in from the main line) is then mirrored.
       ctx.rotate(Math.cos(pose.a) < 0 ? pose.a + Math.PI : pose.a);
       ctx.translate(0, -13);
-      const turning = pose.track === 'TURN' && G.isLoco(pose.v.type) ? G.unloadings.find(x => x.turn && x.track === 'TURN') : null;
       const face = pose.v.facing === -1 ? -1 : 1;
-      if (turning) {
-        // The engine really turns round on the table: its nose swings out towards us, it is seen end-on
-        // halfway round, and then it comes out facing the other way.
-        const theta = easeIO(turning.progress) * Math.PI;
-        const end = clamp01((Math.sin(theta) - 0.55) / 0.3);
-        ctx.save();
-        ctx.globalAlpha = 1 - end;
-        ctx.transform(face * Math.cos(theta), 0.4 * Math.sin(theta) * face, 0, 1, 0, 0);
-        drawVehicleBody(ctx, pose.v.type, false);
-        ctx.restore();
-        if (end > 0) {
-          ctx.globalAlpha = end;
-          drawEngineEnd(ctx, pose.v.type);
-          ctx.globalAlpha = 1;
-        }
-        ctx.restore();
-        return;
-      }
       ctx.scale(face, 1);
       if (extra && extra.glow) {
         path(ctx, -30, -33, 60, 56, 10);
@@ -1115,7 +1060,7 @@
       // The engine shed labels are tucked in at the far left of the screen, out of the way of Pip and the engines:
       // shed 1's right next to the top of its road, shed 2's just under its road.
       const isShedRoad = track.kind === 'shed';
-      const y = isShedRoad ? (track.id === 'SHED2' ? track.y - 34 : track.y + 36) : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
+      const y = isShedRoad ? (track.id === 'SHED2' ? track.y - 34 : track.y + 36) : track.y - 33;
       const lines = isShedRoad
         ? [{ text: track.name.toUpperCase(), size: 9, color: INK }, { text: `${track.cars.length}/${track.cap}`, size: 9, color: INK }]
         : [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
@@ -1140,8 +1085,6 @@
       }
       if (G.unloadingKind(track.id) === 'derail') {
         lines.push({ text: G.recovery(track.id).called ? 'Recovery crew at work…' : 'Derailed! Click the train for recovery', size: 10, color: '#d92f2f' });
-      } else if (G.unloadingKind(track.id) === 'turn') {
-        lines.push({ text: 'Turning the engine round…', size: 10, color: '#1b6fd1' });
       } else if (G.isUnloading(track.id)) {
         lines.push({ text: G.unloadingKind(track.id) === 'goods' ? 'Unloading goods, please wait…' : 'Passengers getting off…', size: 10, color: '#1b6fd1' });
       }
@@ -1357,7 +1300,7 @@
     // Passengers stepping off an arriving train and walking away down the platform.
     function alighting(time, poses) {
       for (const u of G.unloadings) {
-        if (u.derail || u.turn || (u.track !== 'P1' && u.track !== 'P2')) continue;
+        if (u.derail || (u.track !== 'P1' && u.track !== 'P2')) continue;
         const doors = poses.filter(p => p.track === u.track && Y.TYPES[p.v.type].kind === 'coach');
         if (!doors.length) continue;
         const rand = mulberry(u.arrival.id * 53 + 7);
@@ -1682,31 +1625,6 @@
       ctx.restore();
     }
 
-    // The turntable's bridge (the rails across the pit); it swings round when an engine is being turned.
-    function drawTurntableBridge() {
-      const turn = G.byId.get('TURN');
-      if (!turn || turn.locked) return;
-      const c = G.pointAt(turn, turn.uEnd - G.SP / 2);
-      const spin = G.unloadings.find(x => x.turn);
-      ctx.save();
-      ctx.translate(c.x, c.y);
-      ctx.rotate(spin ? easeIO(spin.progress) * Math.PI : 0);
-      box(ctx, -37, -9, 74, 18, 4, '#8b94a9', 2);
-      for (const side of [-5, 5]) {
-        ctx.beginPath();
-        ctx.moveTo(-35, side);
-        ctx.lineTo(35, side);
-        ctx.strokeStyle = '#59627a';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.strokeStyle = '#dfe6f2';
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-      }
-      circle(ctx, 0, 0, 5, '#39435c', 1.8);
-      ctx.restore();
-    }
-
     // The breakdown crane drives in on the derailed train's road, lifts the vehicles back on and drives away.
     function drawCranes(time) {
       for (const u of G.unloadings) {
@@ -1773,7 +1691,6 @@
       ctx.drawImage(stationLayer, 0, 0, G.W, G.H);
       windmill(time);
       stationClock();
-      drawTurntableBridge();
 
       const poses = G.vehiclePoses();
       ambientPeople(time, env);
@@ -1787,7 +1704,7 @@
           ctx.lineWidth = 3;
           ctx.stroke();
         }
-        if (track.locked && track.kind !== 'turntable') lockedOverlay(track);
+        if (track.locked) lockedOverlay(track);
       }
 
       const sel = ui.selected;
@@ -1846,7 +1763,7 @@
 
       signals();
       for (const track of G.tracks) {
-        if (track.kind === 'pip' || (track.kind === 'turntable' && track.locked)) continue;
+        if (track.kind === 'pip') continue;
         tab(track, time);
       }
       for (const fn of after) fn();
