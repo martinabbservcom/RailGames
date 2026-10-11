@@ -1220,6 +1220,15 @@
       emit('recovering', { arrival: u.arrival, track: trackId });
       return true;
     };
+    // Turn the engine on the turntable round again (in case it was turned by mistake).
+    G.turnAgain = trackId => {
+      const t = byId.get(trackId);
+      if (!t || t.kind !== 'turntable' || t.cars.length !== 1 || !isLoco(t.cars[0].type) || isUnloading(trackId)) return false;
+      undoState = null;
+      unloadings.push({ turn: true, track: trackId, t: 0, progress: 0 });
+      emit('turning', { track: trackId });
+      return true;
+    };
     G.isDerailed = trackId => unloadings.some(u => u.derail && u.track === trackId);
     G.recovery = trackId => unloadings.find(u => u.derail && u.track === trackId) || null;
 

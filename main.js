@@ -461,6 +461,11 @@
         return;
       }
       if (selected && selected.track === car.track && selected.idx === car.idx) {
+        // Clicking the engine on the turntable again turns it round again, in case it was turned by mistake.
+        if (game.byId.get(car.track).kind === 'turntable' && game.turnAgain(car.track)) {
+          Y.sound.toot();
+          return;
+        }
         selected = null;
         Y.sound.drop();
       } else if (selected && selected.track !== car.track && targets().includes(car.track)) {
@@ -472,6 +477,7 @@
         const from = game.byId.get(car.track);
         selected = { track: car.track, idx: car.idx };
         Y.sound.pick();
+        if (from.kind === 'turntable') toast('Click the engine again to turn it round the other way, or click a road to send it there.');
         const engineOnly = from.cars.slice(0, car.idx + 1).every(v => game.isLoco(v.type));
         if (game.cutNeedsService(car.track, car.idx + 1) && engineOnly) {
           toast(from.kind !== 'shed' && from.cars.length > car.idx + 1
