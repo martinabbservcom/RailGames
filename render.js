@@ -111,7 +111,7 @@
     coach(ctx, color) {
       box(ctx, -23, -17, 46, 25, 6, color);
       box(ctx, -23, -17, 46, 6, 4, shade(color, 0.35), 2);
-      windows(ctx, 4, -18, -9, 8, 8);
+      windows(ctx, 4, -19, -9, 6.5, 8);
       box(ctx, -23, 3, 46, 5, 2, shade(color, -0.25), 2);
     },
     first(ctx, color) {
@@ -1228,7 +1228,7 @@
         const hovered = ui.hoverCar && ui.hoverCar.track === pose.track && ui.hoverCar.idx >= pose.idx && !sel && !G.busy();
         const lift = picked ? -3 + bounce * 0.5 : 0;
         drawVehicle({ ...pose, y: pose.y + lift }, picked ? { glow: '#ffe14d' } : hovered ? { glow: 'rgba(255,255,255,.9)' } : null);
-        if (G.needsService(pose.v)) servicingBadge(pose, byShed(pose));
+        if (G.needsService(pose.v) && !byShed(pose)) servicingBadge(pose, false);
         if ((pose.cut || pose.leaving) && pose.v.type === 'steam' && time - lastPuff > 120) puff(pose.x + 14, pose.y - 46, false);
         if (picked && pose.idx === sel.idx) {
           ctx.save();
@@ -1250,6 +1250,8 @@
       if (time - lastPuff > 120) lastPuff = time;
 
       for (const track of G.tracks) if (track.kind === 'shed') tab(track, time);
+      // Servicing progress badges go on top of the shed labels so they can always be seen.
+      for (const pose of poses) if (byShed(pose) && G.needsService(pose.v)) servicingBadge(pose, true);
 
       // The shunting engine.
       const pilot = G.pilotPose();

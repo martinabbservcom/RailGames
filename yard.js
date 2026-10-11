@@ -151,11 +151,17 @@
       return platforms.find(t => t.id === a.track) || platforms[0];
     };
     const goodsRoad = tracks.find(t => t.kind === 'goods' && !t.locked);
+    // The guard's van or brake van always rides at the back of a train (the last car, behind the engine-led front).
+    const vanLast = cars => [
+      ...cars.filter(t => t !== 'guard' && t !== 'brake'),
+      ...cars.filter(t => t === 'brake'),
+      ...cars.filter(t => t === 'guard')
+    ];
     const arrivals = level.arrivals
       .map((a, i) => {
         const passengers = a.cars.some(type => isPassenger(type));
         const track = passengers || !goodsRoad ? platformFor(a) : goodsRoad;
-        return { ...a, id: i + 1, track: track.id, status: 'coming' };
+        return { ...a, cars: vanLast(a.cars), id: i + 1, track: track.id, status: 'coming' };
       })
       .sort((a, b) => a.at - b.at);
 
@@ -923,7 +929,7 @@
       const back = passengers ? 'guard' : 'brake';
       const cars = [];
       for (let i = 0; i < len - 1; i++) cars.push(pick(passengers ? PASSENGER_MIX : GOODS_MIX));
-      cars.splice(Math.floor(Math.random() * (cars.length + 1)), 0, back);
+      cars.push(back);
       let track = 'G';
       if (passengers) {
         gen.flip = !gen.flip;
@@ -1014,7 +1020,7 @@
       const len = 3 + Math.floor(Math.random() * 4);
       const cars = [];
       for (let i = 0; i < len - 1; i++) cars.push(pick(passengers ? PASSENGER_MIX : GOODS_MIX));
-      cars.splice(Math.floor(Math.random() * (cars.length + 1)), 0, passengers ? 'guard' : 'brake');
+      cars.push(passengers ? 'guard' : 'brake');
       arrivals.push({
         id: ++nextArrivalId,
         at: G.minute - level.start,
