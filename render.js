@@ -535,7 +535,7 @@
       house(ctx, cx - w / 2, cy - h / 2 + 6, w, h, wall, roof);
       spots.push([cx, cy, 30]);
     }
-    for (const x of [40, 100, 160, 220, 270]) spots.push([x, 585, 44], [x, 490, 50]);
+    for (const x of [40, 100, 160, 220, 270]) spots.push([x, 555, 44], [x, 480, 50], [x, 626, 24]);
     let tries = 0;
     let treeCount = 0;
     while (treeCount < 18 && tries++ < 800) {
@@ -681,6 +681,8 @@
     }
 
     // Engine shed, on the left above the signal box, behind its own road.
+    ctx.save();
+    ctx.translate(0, -20);
     box(ctx, 34, 536, 176, 36, 4, '#d9694f');
     ctx.beginPath();
     ctx.moveTo(26, 540);
@@ -695,10 +697,11 @@
     ctx.stroke();
     box(ctx, 160, 546, 36, 24, 3, '#cfeaff', 2);
     label(ctx, 'ENGINE SHED', 100, 556, 10, '#fff5d8', 'center', 700);
+    ctx.restore();
 
     // Sign for Pip's own siding.
-    box(ctx, 112, 662, 76, 16, 6, '#fff7e0', 2);
-    label(ctx, "PIP'S SIDING", 150, 670, 9, INK, 'center', 700);
+    box(ctx, 112, 648, 76, 16, 6, '#fff7e0', 2);
+    label(ctx, "PIP'S SIDING", 150, 656, 9, INK, 'center', 700);
 
     // Signal box near the lead.
     ctx.save();

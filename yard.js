@@ -28,11 +28,11 @@
     { id: 'S2', name: 'Siding 2', y: 448, xEnd: 960, through: false, kind: 'siding' },
     { id: 'S3', name: 'Siding 3', y: 512, xEnd: 960, through: false, kind: 'siding' },
     // The engine shed branches off the spine to the LEFT, above the signal box, and runs leftwards.
-    { id: 'SHED', name: 'Engine shed 1', y: 590, xEnd: 26, through: false, kind: 'shed', side: 'left' },
+    { id: 'SHED', name: 'Engine shed 1', y: 562, xEnd: 26, through: false, kind: 'shed', side: 'left' },
     // A second shed road on the other side of the shed building.
-    { id: 'SHED2', name: 'Engine shed 2', y: 500, xEnd: 26, through: false, kind: 'shed', side: 'left' },
+    { id: 'SHED2', name: 'Engine shed 2', y: 485, xEnd: 26, through: false, kind: 'shed', side: 'left' },
     // Pip's own little siding, just big enough for the shunting engine, so Pip never has to share a shed road.
-    { id: 'PIP', name: "Pip's siding", y: 640, xEnd: 108, through: false, kind: 'pip', side: 'left' }
+    { id: 'PIP', name: "Pip's siding", y: 626, xEnd: 108, through: false, kind: 'pip', side: 'left' }
   ];
 
   const spinePoint = y => ({ x: L0.x + (L0.y - y) * SPINE_K, y });
@@ -72,16 +72,16 @@
         const m = 1 - t;
         add(m * m * (L0.x - CORNER) + 2 * m * t * L0.x + t * t * cornerEnd.x, m * m * L0.y + 2 * m * t * L0.y + t * t * cornerEnd.y);
       }
-      const bend = left ? Math.min(44, bendY - CORNER - 4) : Math.min(60, bendY - CORNER - 4);
+      const bend = left ? Math.min(52, bendY - CORNER - 4) : Math.min(60, bendY - CORNER - 4);
       const p0 = spinePoint(def.y + bend);
       const p1 = spinePoint(def.y);
-      p2 = left ? { x: p1.x - 62, y: def.y } : { x: p1.x + bend * 1.4 + 20, y: def.y };
+      p2 = left ? { x: p1.x - 80, y: def.y } : { x: p1.x + bend * 1.4 + 20, y: def.y };
       add(p0.x, p0.y);
       uBranch = pts[pts.length - 1].u;
       // Leave the spine at a shallow angle, then ease round to the straight: like a real turnout.
-      const reach = left ? 40 : 58;
+      const reach = left ? 48 : 58;
       const c1 = { x: p0.x + SPINE_DIR.x * reach, y: p0.y + SPINE_DIR.y * reach };
-      const c2 = { x: p2.x + (left ? 45 : -72), y: p2.y };
+      const c2 = { x: p2.x + (left ? 58 : -72), y: p2.y };
       for (let i = 1; i <= 30; i++) {
         const p = cubic(p0, c1, c2, p2, i / 30);
         add(p.x, p.y);
