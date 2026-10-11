@@ -157,7 +157,9 @@
     const freeShed = () => sheds.find(t => t.cars.length < t.cap) || null;
     for (const type of level.shed) {
       const engine = makeVehicle(type);
-      engine.facing = 1; // engines wait in the shed facing right, ready to come out
+      // The engines already in the shed at the start of the day face left, so they come out facing right and are
+      // ready to use straight away (a small help at first). Engines that arrive later are different, see attach().
+      engine.facing = -1;
       (freeShed() || sheds[0]).cars.push(engine);
     }
     for (const [id, list] of Object.entries(level.initial)) {
@@ -332,17 +334,20 @@
     function detach(job) {
       const from = byId.get(job.from);
       job.cut = from.cars.splice(0, job.k);
-      // An engine backs into the shed, so it waits there facing right. Taken out again it faces the wrong way for the
-      // main line: with a turntable it has to be turned round before it can lead a train (without one it just turns itself).
-      if (isShed(from)) for (const v of job.cut) if (isLoco(v.type)) v.facing = turnLevel ? -1 : 1;
     }
 
     function attach(job) {
       const to = byId.get(job.to);
       // An engine that has just arrived stays 'arrived' until it reaches the shed; on a siding it then runs there itself.
       if (isShed(to)) for (const v of job.cut) { v.arrived = false; v.broken = false; }
-      // An engine backs into the shed (arriving facing left), so it waits there facing right.
-      if (isShed(to)) for (const v of job.cut) if (isLoco(v.type)) v.facing = 1;
+      // Every road is joined to the spine so that an engine has to reverse at the bottom of the yard to get from one
+      // road to the next. Going between the right-hand roads it keeps its facing, but the engine shed is on the left,
+      // so an engine that goes in or comes out of the shed ends up facing the other way round. Arriving facing left,
+      // it backs into the shed facing right, and comes out facing left again, the wrong way for the main line, so it
+      // has to be turned on the turntable. (Days without a turntable simply fix this up for the player.)
+      if (job.from && isShed(to) !== isShed(byId.get(job.from))) {
+        for (const v of job.cut) if (isLoco(v.type)) v.facing = turnLevel ? -v.facing : 1;
+      }
       const moved = job.cut;
       to.cars.unshift(...moved);
       job.cut = [];
@@ -806,8 +811,8 @@
           const match = isEngineToken(need) ? isLoco(v.type) && (need === 'loco' || v.type === need) : v.type === need;
           const worn = isShed(t) ? needsService(v) : t.cars.slice(0, idx + 1).some(needsService);
           if (!match || worn) return;
-          // Engines come out of the shed facing the wrong way, so one waiting in the shed counts as needing a turn.
-          if (turnLevel && isEngineToken(need) && (isShed(t) ? true : v.facing !== 1)) {
+          // Coming out of the shed flips an engine, so one in the shed is fit to use if it faces left.
+          if (turnLevel && isEngineToken(need) && (isShed(t) ? v.facing !== -1 : v.facing !== 1)) {
             // Right sort of engine, wrong way round: it can be turned if it is alone or waiting in the shed.
             if (!turnCand && (isShed(t) || (idx === 0 && t.cars.length === 1))) turnCand = { t, idx };
             return;
