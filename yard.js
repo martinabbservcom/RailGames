@@ -30,7 +30,9 @@
     // The engine shed branches off the spine to the LEFT, above the signal box, and runs leftwards.
     { id: 'SHED', name: 'Engine shed 1', y: 590, xEnd: 26, through: false, kind: 'shed', side: 'left' },
     // A second shed road on the other side of the shed building.
-    { id: 'SHED2', name: 'Engine shed 2', y: 500, xEnd: 26, through: false, kind: 'shed', side: 'left' }
+    { id: 'SHED2', name: 'Engine shed 2', y: 500, xEnd: 26, through: false, kind: 'shed', side: 'left' },
+    // Pip's own little siding, just big enough for the shunting engine, so Pip never has to share a shed road.
+    { id: 'PIP', name: "Pip's siding", y: 640, xEnd: 108, through: false, kind: 'pip', side: 'left' }
   ];
 
   const spinePoint = y => ({ x: L0.x + (L0.y - y) * SPINE_K, y });
@@ -70,7 +72,7 @@
         const m = 1 - t;
         add(m * m * (L0.x - CORNER) + 2 * m * t * L0.x + t * t * cornerEnd.x, m * m * L0.y + 2 * m * t * L0.y + t * t * cornerEnd.y);
       }
-      const bend = left ? 44 : Math.min(60, bendY - CORNER - 4);
+      const bend = left ? Math.min(44, bendY - CORNER - 4) : Math.min(60, bendY - CORNER - 4);
       const p0 = spinePoint(def.y + bend);
       const p1 = spinePoint(def.y);
       p2 = left ? { x: p1.x - 62, y: def.y } : { x: p1.x + bend * 1.4 + 20, y: def.y };
@@ -125,7 +127,7 @@
   function createGame(level) {
     const tracks = TRACK_DEFS.map(buildTrack);
     const byId = new Map(tracks.map(track => [track.id, track]));
-    for (const track of tracks) track.locked = !level.tracks.includes(track.id);
+    for (const track of tracks) track.locked = track.kind === 'pip' ? false : !level.tracks.includes(track.id);
     // True if the spine carries on past where this road branches off (some other road lies further up it).
     for (const track of tracks) track.spineContinues = tracks.some(o => o !== track && o.side !== 'left' && o.y < track.y);
 
@@ -201,6 +203,12 @@
     };
 
     const emit = (type, data = {}) => G.events.push({ type, ...data });
+    const DERAIL_CHANCE = 0.14; // chance that an arriving train derails (events levels only)
+    const DERAIL_AFTER = 12; // game minutes into the day before the first derailment can happen
+    const BREAKDOWN_CHANCE = 0.12; // chance that a departing train's engine breaks down (events levels only)
+    const BREAKDOWN_AFTER = 12; // game minutes into the day before the first breakdown
+    const BREAKDOWN_DELAY = 4; // extra game minutes given to a train whose engine broke down
+    const RECOVER_SECONDS = 16; // real seconds the recovery crew needs once called, at 1x
 
     // ---- Formations -----------------------------------------------------------
     function formationMatches(dep, track) {
@@ -208,7 +216,7 @@
       if (cars.length !== dep.spec.length) return false;
       return dep.spec.every((token, i) => {
         const car = cars[cars.length - 1 - i];
-        return token === 'loco' ? isLoco(car.type) : car.type === token;
+        return token === 'loco' ? isLoco(car.type) && !needsService(car) : car.type === token;
       });
     }
     G.formationMatches = formationMatches;
@@ -222,6 +230,7 @@
       for (let i = 0; i < Math.min(front.length, dep.spec.length); i++) {
         if (!fits(i)) {
           const article = /^[aeiou]/.test(name(dep.spec[i])) ? 'an' : 'a';
+          if (i === 0 && isLoco(front[0].type) && needsService(front[0])) return 'Engine broken down: swap it for a new one';
           return i === 0
             ? `Needs an engine at the front`
             : `Vehicle ${i + 1} from the front should be ${article} ${name(dep.spec[i])}`;
@@ -292,7 +301,7 @@
     function attach(job) {
       const to = byId.get(job.to);
       // An engine that has just arrived stays 'arrived' until it reaches the shed; on a siding it then runs there itself.
-      if (isShed(to)) for (const v of job.cut) v.arrived = false;
+      if (isShed(to)) for (const v of job.cut) { v.arrived = false; v.broken = false; }
       to.cars.unshift(...job.cut);
       job.cut = [];
     }
@@ -312,7 +321,7 @@
     G.pilot = pilot;
 
     // Pip starts the day parked in the engine shed road.
-    const startShed = sheds[0];
+    const startShed = byId.get('PIP');
     if (startShed) {
       pilot.track = startShed.id;
       pilot.u = slotU(startShed, 0, startShed.cars.length) - SP;
@@ -385,7 +394,7 @@
 
     // Pip must never be left on a road a train is arriving on, or on the lead by the signal box, when a
     // train is due: it parks on the engine shed road (or another open road) and stays out of the way.
-    const PARK_ORDER = ['SHED', 'SHED2', 'S1', 'S2', 'S3', 'G', 'P2', 'P1'];
+    const PARK_ORDER = ['PIP', 'SHED', 'SHED2', 'S1', 'S2', 'S3', 'G', 'P2', 'P1'];
     function parkingRoad(...exclude) {
       const open = id => {
         const t = byId.get(id);
@@ -424,19 +433,22 @@
     const IDLE_SECONDS = 5;
     let idle = 0;
 
-    // Pip tucks into an engine shed road if one has room, otherwise goes back to the signal box.
+    // Pip's own siding or an engine shed road: places where Pip can wait out of the way.
+    const isParking = t => t.kind === 'pip' || isShed(t);
+
+    // Pip tucks into its own siding if one has room, otherwise goes back to the signal box.
     function startToShed() {
       const here = pilot.track === null ? null : byId.get(pilot.track);
-      if (here && isShed(here)) return;
+      if (here && isParking(here)) return;
       const dest = parkingRoad();
-      if (dest && isShed(dest)) startPark(dest);
+      if (dest && isParking(dest)) startPark(dest);
       else startHome();
     }
 
     G.sendHome = () => {
       if (G.busy() || G.finished || pilot.track === null) return false;
       const here = byId.get(pilot.track);
-      if (isShed(here)) return false;
+      if (isParking(here)) return false;
       startToShed();
       return true;
     };
@@ -486,6 +498,13 @@
         dir: -1,
         steps: [{ go: rec.id, to: uFinal, onEnd: attach }],
         onDone: () => {
+          if (eventsOn && G.minute - level.start > DERAIL_AFTER && Math.random() < DERAIL_CHANCE) {
+            // Random event: the train derails as it comes in and must be recovered before it can be moved.
+            arrival.status = 'derailed';
+            unloadings.push({ arrival, track: rec.id, t: 0, progress: 0, derail: true, called: false });
+            emit('derail', { arrival, track: rec.id });
+            return;
+          }
           // Give the passengers a little time to get off before the train can be moved.
           arrival.status = 'unloading';
           unloadings.push({ arrival, track: rec.id, t: 0, progress: 0 });
@@ -504,18 +523,22 @@
     G.unloadingKind = trackId => {
       const u = unloadings.find(x => x.track === trackId);
       if (!u) return null;
+      if (u.derail) return 'derail';
       return u.arrival.cars.some(type => isPassenger(type)) ? 'passengers' : 'goods';
     };
 
     function updateUnloading(dt) {
       for (let i = unloadings.length - 1; i >= 0; i--) {
         const u = unloadings[i];
+        // A derailed train stands until the player calls the recovery crew; then the crew takes a while.
+        if (u.derail && !u.called) continue;
         u.t += dt;
-        u.progress = Math.min(1, u.t / UNLOAD_SECONDS);
+        u.progress = Math.min(1, u.t / (u.derail ? RECOVER_SECONDS : UNLOAD_SECONDS));
         if (u.progress >= 1) {
           unloadings.splice(i, 1);
           u.arrival.status = 'arrived';
-          emit('arrived', { arrival: u.arrival, track: u.track });
+          if (u.derail) emit('recovered', { arrival: u.arrival, track: u.track });
+          else emit('arrived', { arrival: u.arrival, track: u.track });
         }
       }
     }
@@ -530,7 +553,7 @@
       if (G.job && G.job.kind === 'arrival' && G.job.to === trackId) return 'green';
       const nextAny = arrivals.find(a => a.status === 'coming');
       if (!nextAny || nextAny.track !== trackId) return 'red';
-      const clear = track.cars.length === 0 && !G.leaving.some(l => l.track === trackId);
+      const clear = !track.locked && track.cars.length === 0 && !G.leaving.some(l => l.track === trackId);
       const due = nextAny.at + level.start - G.minute;
       if (!clear) return 'red';
       return due <= 0 ? 'green' : due < 3 ? 'amber' : 'red';
@@ -539,7 +562,8 @@
     // An arrived engine that has been taken into a siding with its train is uncoupled and drives itself to the shed.
     function readyLoco() {
       if (!freeShed()) return null;
-      return tracks.find(t => t.kind === 'siding' && t.cars.length > 0 && t.cars[0].arrived === true && !isUnloading(t.id)) || null;
+      return tracks.find(t => !isShed(t) && t.cars.length > 0 && !isUnloading(t.id) &&
+        ((t.kind === 'siding' && t.cars[0].arrived === true) || (t.cars.length === 1 && t.cars[0].broken === true))) || null;
     }
 
     // The next train due in, if the road it needs is clear. Trains arrive in timetable order.
@@ -579,7 +603,7 @@
       }
       const worn = cut.some(needsService);
       return tracks
-        .filter(t => !t.locked && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
+        .filter(t => !t.locked && t.kind !== 'pip' && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
         // A worn engine alone may only go to the shed; hauling a train it may only go to a siding.
         .filter(t => !worn || (cut.every(v => isLoco(v.type)) ? isShed(t) : t.kind === 'siding'))
         .map(t => t.id);
@@ -682,9 +706,15 @@
       }
       const track = byId.get(dep.track);
       if (isUnloading(track.id)) {
+        if (G.unloadingKind(track.id) === 'derail') return { text: `The train on ${track.name} has derailed. Click it to call the recovery crew.` };
         return { text: G.unloadingKind(track.id) === 'goods' ? `Goods are still being unloaded at ${track.name}. Please wait.` : `Passengers are still getting off at ${track.name}. One moment!` };
       }
       const front = [...track.cars].reverse();
+      if (front.length && isLoco(front[0].type) && needsService(front[0])) {
+        // A broken-down engine: uncouple the train from it, send it to the shed and fit a new engine.
+        if (front.length > 1) return moveOut(track, front.length - 1, `The engine on ${track.name} has broken down. Move the train off it first, then it can go to the shed.`);
+        return { text: `The broken engine on ${track.name} will run to the shed. Then fit a serviced engine at the front.` };
+      }
       const fits = i => (dep.spec[i] === 'loco' ? isLoco(front[i].type) : front[i].type === dep.spec[i]);
       for (let i = 0; i < Math.min(front.length, dep.spec.length); i++) {
         if (!fits(i)) return moveOut(track, front.length - i, `Vehicle ${i + 1} on ${track.name} is wrong.`);
@@ -734,7 +764,7 @@
     G.pilotPose = () => {
       const job = G.job;
       if (!job || job.hidePilot) {
-        const p = pointAt(byId.get(pilot.track || sheds[0].id), pilot.u);
+        const p = pointAt(byId.get(pilot.track || 'PIP'), pilot.u);
         return { ...p, flip: pilot.flip, moving: false, work: false, parked: pilot.track !== null };
       }
       const p = pointAt(byId.get(job.track), job.pilotU);
@@ -800,7 +830,17 @@
               emit('ready', { dep });
             }
           }
-          if (dep.progress >= 1 && G.minute >= due) depart(dep, track);
+          if (dep.progress >= 1 && G.minute >= due) {
+            // Random event: the engine may break down just as the train is about to leave.
+            if (eventsOn && !dep.breakChecked) {
+              dep.breakChecked = true;
+              if (G.minute - level.start > BREAKDOWN_AFTER && Math.random() < BREAKDOWN_CHANCE) {
+                breakDown(dep, track);
+                continue;
+              }
+            }
+            depart(dep, track);
+          }
         } else if (dep.progress > 0) {
           // Formation broken or being shunted: passengers get off again.
           dep.progress = Math.max(0, dep.progress - (2 * dt) / BOARD_SECONDS);
@@ -816,6 +856,18 @@
       }
     }
 
+    function breakDown(dep, track) {
+      const engine = track.cars[track.cars.length - 1];
+      engine.service = SERVICE_MINUTES; // needs servicing again
+      engine.broken = true;
+      dep.status = 'waiting';
+      dep.progress = 0;
+      dep.at += BREAKDOWN_DELAY; // a little extra time to sort it out
+      G.scheduleVersion++;
+      undoState = null;
+      emit('breakdown', { dep, track: track.id });
+    }
+
     function depart(dep, track) {
       const late = Math.max(0, G.minute - (level.start + dep.at));
       dep.lateBy = late;
@@ -825,13 +877,15 @@
       G.sent++;
       G.stars += dep.stars;
       const cars = track.cars.splice(0);
-      G.leaving.push({ track: track.id, cars, base: slotU(track, 0, cars.length) - SP, v: 0, dep });
-      emit('depart', { dep, track: track.id });
+      // With a signal failure on the road, the train has to creep out.
+      const slow = track.signalFailedUntil > G.minute;
+      G.leaving.push({ track: track.id, cars, base: slotU(track, 0, cars.length) - SP, v: 0, dep, slow });
+      emit('depart', { dep, track: track.id, slow });
     }
 
     function updateLeaving(dt) {
       for (const train of G.leaving) {
-        train.v = Math.min(train.v + 170 * dt, 440);
+        train.v = Math.min(train.v + (train.slow ? 28 : 170) * dt, train.slow ? 75 : 440);
         train.base += train.v * dt;
       }
       G.leaving = G.leaving.filter(train => {
@@ -847,15 +901,16 @@
       if (endless) extendSchedule();
 
       if (freeplay) updateFreeplay();
+      if (eventsOn) updateEvents();
 
       const incoming = arrivalReady();
       const loco = readyLoco();
-      if (!G.job && incoming && (pilot.track === null || pilot.track === incoming.track)) {
-        // A train is arriving: Pip gets out of the way and parks on another road.
+      if (!G.job && incoming && pilot.track === incoming.track) {
+        // A train is arriving on the road Pip is standing on: Pip gets out of the way (trains come in from the right, so Pip is fine anywhere else).
         const parking = parkingRoad(incoming.track);
         if (parking) startPark(parking);
       } else if (!G.job && loco && (pilot.track === loco.id || pilot.track === freeShed().id)) {
-        // The engine is about to run into the shed: Pip moves over to another shed road (or home if none is free).
+        // The engine is about to run out of Pip's road or into Pip's shed road: Pip tucks into its own siding.
         const away = parkingRoad(loco.id, freeShed().id);
         if (away) startPark(away);
         else startHome();
@@ -871,14 +926,13 @@
         held.held = true;
         emit('held', { arrival: held });
       }
-      const shedOpen = freeShed() !== null;
       if (G.job || pilot.track !== null) idle = 0;
-      else if (shedOpen && !readyLoco() && !arrivalReady()) {
+      else if (!readyLoco() && !arrivalReady()) {
         idle += dt;
         if (idle >= IDLE_SECONDS) {
           idle = 0;
           const dest = parkingRoad();
-          if (dest && isShed(dest)) startPark(dest);
+          if (dest && isParking(dest)) startPark(dest);
         }
       }
       if (G.job) stepJob(dt);
@@ -913,7 +967,7 @@
     // player has missed MAX_MISSES trains. Every departure is built from vehicles that
     // really arrive, so it can always be done (but not always in time).
     const endless = !!level.endless;
-    const TOWNS = ['Hillbury', 'Marshford', 'Dockside', 'Castle Hill', 'Lakeside', 'Greenfield', 'Cityville', 'Sandy Bay'];
+    const TOWNS = ['Hillbury', 'Marshford', 'Dockside', 'Castle Hill', 'Lakeside', 'Greenfield', 'Cityville', 'Skegness'];
     const PASSENGER_MIX = ['coach', 'coach', 'coach', 'first', 'buffet'];
     const GOODS_MIX = ['coal', 'box', 'logs', 'tank', 'box'];
     const rnd = (lo, hi) => lo + Math.random() * (hi - lo);
@@ -997,6 +1051,73 @@
 
     if (endless) extendSchedule();
 
+    // ---- Random events ----------------------------------------------------------------
+    // Levels with `events: true` get track works that close a road for a while, and arriving trains
+    // that sometimes derail and have to be recovered before they can be moved.
+    const eventsOn = !!level.events;
+    let nextEventAt = level.start + rnd(10, 16);
+    let nextSignalAt = level.start + rnd(16, 24);
+
+    // Signal failure: trains leaving that road have to creep out slowly (and so hold up the road longer).
+    function startSignalFailure() {
+      if (tracks.some(t => t.signalFailedUntil > G.minute)) return false;
+      const options = tracks.filter(t => t.through && !t.locked);
+      if (!options.length) return false;
+      const track = pick(options);
+      const minutes = Math.round(rnd(8, 12));
+      track.signalFailedUntil = G.minute + minutes;
+      emit('signalfail', { track: track.id, minutes });
+      return true;
+    }
+
+    G.callRecovery = trackId => {
+      const u = unloadings.find(x => x.track === trackId && x.derail && !x.called);
+      if (!u) return false;
+      u.called = true;
+      emit('recovering', { arrival: u.arrival, track: trackId });
+      return true;
+    };
+    G.isDerailed = trackId => unloadings.some(u => u.derail && u.track === trackId);
+    G.recovery = trackId => unloadings.find(u => u.derail && u.track === trackId) || null;
+
+    function startTrackWorks() {
+      if (tracks.some(t => t.blockedUntil)) return false;
+      const minutes = Math.round(rnd(6, 9));
+      const horizon = G.minute + minutes + 3;
+      const quiet = t =>
+        ['platform', 'goods', 'siding'].includes(t.kind) && !t.locked && t.cars.length === 0 &&
+        !isUnloading(t.id) && pilot.track !== t.id &&
+        !(G.job && (G.job.from === t.id || G.job.to === t.id || G.job.track === t.id)) &&
+        !G.leaving.some(l => l.track === t.id) &&
+        !arrivals.some(a => a.track === t.id && (a.status === 'arriving' || (a.status === 'coming' && level.start + a.at < horizon))) &&
+        !departures.some(d => d.track === t.id && (d.status === 'waiting' || d.status === 'boarding' || d.status === 'ready') && level.start + d.at < horizon);
+      const options = tracks.filter(quiet);
+      if (!options.length) return false;
+      const track = pick(options);
+      track.locked = true;
+      track.blockedUntil = G.minute + minutes;
+      emit('blocked', { track: track.id, minutes });
+      return true;
+    }
+
+    function updateEvents() {
+      for (const t of tracks) {
+        if (t.blockedUntil && G.minute >= t.blockedUntil) {
+          t.blockedUntil = 0;
+          t.locked = false;
+          emit('reopened', { track: t.id });
+        }
+      }
+      for (const t of tracks) {
+        if (t.signalFailedUntil && G.minute >= t.signalFailedUntil) {
+          t.signalFailedUntil = 0;
+          emit('signalfixed', { track: t.id });
+        }
+      }
+      if (G.minute >= nextSignalAt) nextSignalAt = G.minute + (startSignalFailure() ? rnd(18, 30) : 2);
+      if (G.minute >= nextEventAt) nextEventAt = G.minute + (startTrackWorks() ? rnd(14, 24) : 2);
+    }
+
     // ---- Free play ------------------------------------------------------------------
     // No timetable: a train comes in every 10 minutes if a road is free, and any train standing on a
     // platform or the goods road with a fit engine at the front boards and leaves after 2 minutes.
@@ -1013,6 +1134,15 @@
       return !!t && !t.locked && t.cars.length === 0 && !isUnloading(id) &&
         !G.leaving.some(l => l.track === id) && !arrivals.some(a => a.status === 'arriving' && a.track === id);
     }
+
+    // The player can call the next train in early from the main line (Free Play only).
+    G.canCallTrain = () =>
+      freeplay && !G.finished && !arrivals.some(a => a.status === 'coming') && ['P1', 'P2', 'G'].some(roadFree);
+    G.callTrain = () => {
+      if (!G.canCallTrain() || !freeArrival()) return false;
+      nextFreeArrival = G.minute + FREE_ARRIVAL_GAP;
+      return true;
+    };
 
     function freeArrival() {
       const platforms = ['P1', 'P2'].filter(roadFree);

@@ -41,7 +41,7 @@
         { at: 9, from: 'Marshford', track: 'P1', loco: 'diesel', cars: ['coach', 'guard', 'coach'] }
       ],
       departures: [
-        { at: 22, track: 'P1', name: 'Seaside Express', dest: 'Sandy Bay', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
+        { at: 22, track: 'P1', name: 'Seaside Express', dest: 'Skegness', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
         { at: 42, track: 'P1', name: 'Golden Tour', dest: 'Castle Hill', spec: ['loco', 'first', 'coach', 'guard'] }
       ]
     },
@@ -87,7 +87,7 @@
         { at: 28, track: 'G', name: 'Milk and Mail', dest: 'Greenfield', spec: ['loco', 'box', 'box', 'brake'] },
         { at: 42, track: 'P2', name: 'Festival Special', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'coach', 'guard'] },
         { at: 58, track: 'G', name: 'Timber Express', dest: 'Dockside', spec: ['loco', 'logs', 'logs', 'logs', 'brake'] },
-        { at: 72, track: 'P1', name: 'Café Cruiser', dest: 'Sandy Bay', spec: ['loco', 'buffet', 'coach', 'coach', 'guard'] },
+        { at: 72, track: 'P1', name: 'Café Cruiser', dest: 'Skegness', spec: ['loco', 'buffet', 'coach', 'coach', 'guard'] },
         { at: 88, track: 'P2', name: 'Golden Jubilee', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] }
       ]
     },
@@ -118,8 +118,9 @@
     {
       id: 5,
       title: 'Endless Rush',
-      blurb: 'Trains keep coming and it only gets busier. How long can you last? The day ends when you miss 3 trains.',
+      blurb: 'Trains keep coming and it only gets busier, with track works and derailments. How long can you last? The day ends when you miss 3 trains.',
       endless: true,
+      events: true,
       start: 8 * 60,
       tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
       shed: ['diesel', 'steam'],
@@ -132,6 +133,7 @@
       title: 'Free Play',
       blurb: "No timetable. A train arrives every 10 minutes if a road is free. Build your own trains: a train with an engine in front and a guard's or brake van at the back leaves after 2 minutes.",
       freeplay: true,
+      events: true,
       start: 8 * 60,
       tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
       shed: ['steam', 'diesel'],

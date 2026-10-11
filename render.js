@@ -696,9 +696,13 @@
     box(ctx, 160, 546, 36, 24, 3, '#cfeaff', 2);
     label(ctx, 'ENGINE SHED', 100, 556, 10, '#fff5d8', 'center', 700);
 
+    // Sign for Pip's own siding.
+    box(ctx, 112, 662, 76, 16, 6, '#fff7e0', 2);
+    label(ctx, "PIP'S SIDING", 150, 670, 9, INK, 'center', 700);
+
     // Signal box near the lead.
     ctx.save();
-    ctx.translate(130, 0);
+    ctx.translate(300, 0);
     box(ctx, 28, 640, 44, 34, 3, '#fff0c9');
     box(ctx, 22, 616, 56, 28, 3, '#6b8cff');
     box(ctx, 30, 622, 14, 16, 2, '#d9f1ff', 1.5);
@@ -835,6 +839,12 @@
     function drawVehicle(pose, extra) {
       ctx.save();
       ctx.translate(pose.x, pose.y);
+      if (pose.track && G.isDerailed(pose.track)) {
+        // A derailed train lies skewed off the rails, each vehicle at its own angle.
+        const k = pose.idx || 0;
+        ctx.translate(0, 4 + (k % 2) * 2);
+        ctx.rotate((k % 2 ? 1 : -1) * (0.1 + (k % 3) * 0.04));
+      }
       if (Math.cos(pose.a) < 0) {
         // Heading left (the engine shed road): turn the picture round so it stays the right way up.
         ctx.rotate(pose.a + Math.PI);
@@ -865,7 +875,15 @@
         const note = arrived || G.isUnloading(track.id) ? '' : G.formationHint(dep, track);
         if (note) lines.push({ text: note, size: 10, color: note === 'Perfect!' ? '#1f9d5b' : '#b5651d' });
       }
-      if (G.isUnloading(track.id)) {
+      if (track.signalFailedUntil > G.minute) {
+        lines.push({ text: `Signal failure · trains leave slowly (${Math.max(1, Math.ceil(track.signalFailedUntil - G.minute))} min)`, size: 10, color: '#d92f2f' });
+      }
+      if (track.blockedUntil) {
+        lines.push({ text: `Track works · reopens in ${Math.max(1, Math.ceil(track.blockedUntil - G.minute))} min`, size: 10, color: '#ffd23f' });
+      }
+      if (G.unloadingKind(track.id) === 'derail') {
+        lines.push({ text: G.recovery(track.id).called ? 'Recovery crew at work…' : 'Derailed! Click the train for recovery', size: 10, color: '#d92f2f' });
+      } else if (G.isUnloading(track.id)) {
         lines.push({ text: G.unloadingKind(track.id) === 'goods' ? 'Unloading goods, please wait…' : 'Passengers getting off…', size: 10, color: '#1b6fd1' });
       }
       let w = 0;
@@ -884,6 +902,31 @@
       ctx.strokeStyle = INK;
       ctx.stroke();
       lines.forEach((line, i) => label(ctx, line.text, x + 7, top + 10 + i * 13, line.size, line.color, 'left', 700));
+    }
+
+    // A warning (or the recovery progress bar) over a derailed train.
+    function derailBadges(time) {
+      for (const u of G.unloadings) {
+        if (!u.derail) continue;
+        const track = G.byId.get(u.track);
+        const mid = track.xEnd - (track.cars.length * G.SP) / 2;
+        const y = track.y - 56;
+        const wide = u.called ? 150 : 184;
+        path(ctx, mid - wide / 2, y - 12, wide, 24, 12);
+        ctx.fillStyle = u.called ? 'rgba(255,255,255,.94)' : (Math.floor(time / 450) % 2 ? '#ffe3e3' : '#fff');
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = u.called ? INK : '#d92f2f';
+        ctx.stroke();
+        if (u.called) {
+          path(ctx, mid - 66, y + 3, 132 * Math.max(0.05, u.progress), 5, 2.5);
+          ctx.fillStyle = '#3ccf7a';
+          ctx.fill();
+          label(ctx, '🚧 Recovery crew at work', mid, y - 3, 10, INK, 'center', 700);
+        } else {
+          label(ctx, '⚠ Derailed! Click to call recovery', mid, y, 10, '#d92f2f', 'center', 700);
+        }
+      }
     }
 
     function lockedOverlay(track) {
@@ -945,6 +988,17 @@
     // A little signal on a post. `state` is 'green', 'amber' or 'red'.
     // `dir` (-1 or 1) adds a small arrow under the lamps showing which way the train it controls is going.
     function signalPost(x, y, state, dir = 0) {
+      if (state === 'fault') {
+        // Failed signal: lamps flicker and a warning sign stands over it.
+        const on = Math.floor(Date.now() / 400) % 2;
+        ctx.fillStyle = INK;
+        ctx.fillRect(x - 1.5, y - 30, 3, 36);
+        box(ctx, x - 6, y - 40, 12, 20, 5, '#39435c', 2);
+        circle(ctx, x, y - 34, 3.6, on ? '#ffb938' : '#3a2a2a');
+        circle(ctx, x, y - 25, 3.6, '#4a3a3a');
+        label(ctx, '⚠', x, y - 50, 12, '#d92f2f', 'center', 700);
+        return;
+      }
       ctx.fillStyle = INK;
       ctx.fillRect(x - 1.5, y - 30, 3, 36);
       box(ctx, x - 6, y - 40, 12, 20, 5, '#39435c', 2);
@@ -980,7 +1034,7 @@
         const dep = G.activeDeparture(track.id);
         const state = dep && dep.status === 'ready' ? 'green' : dep && dep.status === 'boarding' ? 'amber' : 'red';
         // The exit signal (arrow pointing right) stands beside the road, just past the end of the train.
-        signalPost(track.xEnd + 32, track.y - 16, state, 1);
+        signalPost(track.xEnd + 32, track.y - 16, track.signalFailedUntil > G.minute ? 'fault' : state, 1);
       }
     }
 
@@ -1042,7 +1096,7 @@
     // Passengers stepping off an arriving train and walking away down the platform.
     function alighting(time, poses) {
       for (const u of G.unloadings) {
-        if (u.track !== 'P1' && u.track !== 'P2') continue;
+        if (u.derail || (u.track !== 'P1' && u.track !== 'P2')) continue;
         const doors = poses.filter(p => p.track === u.track && Y.TYPES[p.v.type].kind === 'coach');
         if (!doors.length) continue;
         const rand = mulberry(u.arrival.id * 53 + 7);
@@ -1218,7 +1272,7 @@
           ctx.lineWidth = 3;
           ctx.stroke();
         }
-        if (track.kind !== 'shed') tab(track, time);
+        if (track.kind !== 'shed' && track.kind !== 'pip') tab(track, time);
         if (track.locked) lockedOverlay(track);
       }
       signals();
@@ -1255,6 +1309,7 @@
       if (time - lastPuff > 120) lastPuff = time;
 
       for (const track of G.tracks) if (track.kind === 'shed') tab(track, time);
+      derailBadges(time);
       // Servicing progress badges go on top of the shed labels so they can always be seen.
       for (const pose of poses) if (byShed(pose) && G.needsService(pose.v)) servicingBadge(pose, true);
 

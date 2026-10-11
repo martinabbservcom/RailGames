@@ -120,6 +120,7 @@
       $('stars-total').innerHTML = starsHtml;
       $('star-max').textContent = game.maxStars;
     }
+    $('call-train').hidden = !game.freeplay;
     buildBoard();
     fit();
     hideOverlays();
@@ -241,6 +242,7 @@
       let chip = left > 0 ? `in ${left} min` : 'due';
       if (arrival.status === 'coming' && left <= 0) chip = 'Waiting…';
       if (arrival.status === 'arriving') chip = 'Arriving!';
+      if (arrival.status === 'derailed') chip = 'Derailed!';
       if (arrival.status === 'unloading') chip = 'Unloading…';
       if (arrival.status === 'arrived') chip = 'Here ✓';
       card.className = `card arr status-${arrival.status}`;
@@ -255,6 +257,7 @@
     if (next && next !== lastNext) next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     lastNext = next;
     $('undo').disabled = !game.canUndo();
+    $('call-train').disabled = !game.canCallTrain();
     $('clock').textContent = clock(game.minute);
     if (game.freeplay) {
       $('stars-total').innerHTML = `🚂 <span id="star-count">${game.sent}</span> sent`;
@@ -359,6 +362,10 @@
       const chosen = game.byId.get(car.track);
       if (chosen.locked) return;
       if (game.isUnloading(car.track)) {
+        if (game.unloadingKind(car.track) === 'derail') {
+          callRecovery(car.track);
+          return;
+        }
         Y.sound.deny();
         toast(game.unloadingKind(car.track) === 'goods' ? 'Goods are still being unloaded. Please wait.' : 'Passengers are still getting off. One moment!');
         return;
@@ -376,6 +383,10 @@
       }
       return;
     }
+    if (track && !selected && game.unloadingKind(track.id) === 'derail') {
+      callRecovery(track.id);
+      return;
+    }
     if (track && selected) {
       dropOn(track.id);
       return;
@@ -383,12 +394,19 @@
     selected = null;
   }
 
+  function callRecovery(trackId) {
+    if (game.callRecovery(trackId)) Y.sound.toot();
+    else toast('The recovery crew is already on its way.');
+  }
+
   function dropOn(trackId) {
     if (!targets().includes(trackId)) {
       Y.sound.deny();
       const t = game.byId.get(trackId);
       let message = 'Not enough room on that track!';
-      if (t.locked) message = 'That track is closed today.';
+      if (t.kind === 'pip') message = "That is Pip's own siding.";
+      else if (t.locked) message = 'That track is closed today.';
+      else if (game.unloadingKind(trackId) === 'derail') message = 'A derailed train is blocking that road.';
       else if (game.isUnloading(trackId)) message = game.unloadingKind(trackId) === 'goods' ? 'Goods are still being unloaded there. Please wait.' : 'Passengers are still getting off there.';
       else if (game.cutNeedsService(selected.track, selected.idx + 1) && t.kind !== 'shed') {
         message = 'A tired engine can only go to an engine shed on its own, or to a siding with its train.';
@@ -460,6 +478,16 @@
     Y.sound.pick();
   }
 
+  $('call-train').addEventListener('click', () => {
+    if (!game || paused) return;
+    if (game.callTrain()) {
+      selected = null;
+      toast('You called the next train in from the main line.');
+    } else {
+      Y.sound.deny();
+      toast(game.canCallTrain() ? 'No train is available right now.' : 'A train is already on its way, or every platform and the goods road is busy.', 'bad');
+    }
+  });
   $('undo').addEventListener('click', undo);
   $('hint-button').addEventListener('click', showHint);
   $('pause').addEventListener('click', togglePause);
@@ -553,6 +581,37 @@
         case 'arrived':
           toast(`The ${event.arrival.from} train is unloaded. Move it out of the way. Its engine needs servicing and goes to the shed.`);
           break;
+        case 'blocked':
+          Y.sound.deny();
+          toast(`Track works! ${game.byId.get(event.track).name} is closed for about ${event.minutes} minutes.`, 'bad');
+          break;
+        case 'reopened':
+          Y.sound.ding();
+          toast(`${game.byId.get(event.track).name} has reopened.`, 'good');
+          break;
+        case 'derail':
+          Y.sound.sad();
+          toast(`The ${event.arrival.from} train has derailed on ${game.byId.get(event.track).name}! Click it to call the recovery crew.`, 'bad');
+          break;
+        case 'recovering':
+          toast('The recovery crew is on its way. Please wait…');
+          break;
+        case 'recovered':
+          Y.sound.ding();
+          toast(`The ${event.arrival.from} train is back on the rails. Move it into a siding.`, 'good');
+          break;
+        case 'signalfail':
+          Y.sound.deny();
+          toast(`Signal failure on ${game.byId.get(event.track).name}! Trains will leave very slowly for about ${event.minutes} minutes.`, 'bad');
+          break;
+        case 'signalfixed':
+          Y.sound.ding();
+          toast(`The signal on ${game.byId.get(event.track).name} has been repaired.`, 'good');
+          break;
+        case 'breakdown':
+          Y.sound.sad();
+          toast(`${event.dep.name}'s engine has broken down! Move the train off it, send the engine to the shed and fit a new one.`, 'bad');
+          break;
         case 'held':
           Y.sound.deny();
           toast(`The ${event.arrival.from} train is held at the signal. Clear ${game.byId.get(event.arrival.track).name}!`, 'bad');
@@ -569,7 +628,7 @@
           Y.sound.whistle();
           Y.sound.cheer(event.dep.stars);
           renderer.burst(track.xEnd - 40, track.y - 30, 'confetti');
-          toast(game.freeplay ? `${event.dep.name} departed!` : `${event.dep.name} departed! ${starText(event.dep.stars)}`, 'good');
+          toast((game.freeplay ? `${event.dep.name} departed!` : `${event.dep.name} departed! ${starText(event.dep.stars)}`) + (event.slow ? ' Slowly, because of the signal failure.' : ''), 'good');
           break;
         }
         case 'cancel':
