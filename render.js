@@ -353,34 +353,15 @@
       ctx.strokeStyle = '#8a5a36';
       ctx.lineWidth = 3.5;
       ctx.lineCap = 'butt';
-      // Where a branch has only just left the spine its sleepers would criss-cross the main line's,
-      // so they start once the two roads have properly parted (like the sleepers at real points).
-      const b = pointAt(track, track.uBranch);
-      const bd = pointAt(track, track.uBranch - 4);
-      const bl = Math.hypot(b.x - bd.x, b.y - bd.y) || 1;
-      for (let u = start; u < track.uEnd + 40; u += 13) {
+      // Every sleeper is drawn at full length, so both ends show all the way round a curve. Where a
+      // branch leaves the spine the sleepers overlap and fan out, like the sleepers at real points.
+      for (let u = start; u < track.uEnd + 40; u += 12) {
         const p = pointAt(track, u);
-        const ux = -Math.sin(p.a);
-        const uy = Math.cos(p.a);
-        // Near the main line a branch sleeper is shortened to the outer side, so there is no gap
-        // in the sleepers and they don't poke across the main line.
-        let inner = 10;
-        let outer = 10;
-        if (u > track.uBranch && track.spineContinues) {
-          const d = ((p.x - b.x) * (b.y - bd.y) - (p.y - b.y) * (b.x - bd.x)) / bl;
-          if (Math.abs(d) < 13) {
-            const s = d >= 0 ? 1 : -1;
-            const away = (ux * (b.y - bd.y) - uy * (b.x - bd.x)) * s >= 0 ? 1 : -1;
-            // The short side is toward the main line and stops where the main line's own sleeper ends are,
-            // so the two sets join up. The outer end of the branch sleeper always stays full length.
-            const short = Math.max(2, Math.abs(d) - 9);
-            if (away > 0) inner = Math.min(10, short);
-            else outer = Math.min(10, short);
-          }
-        }
+        const nx = -Math.sin(p.a) * 11;
+        const ny = Math.cos(p.a) * 11;
         ctx.beginPath();
-        ctx.moveTo(p.x - ux * inner, p.y - uy * inner);
-        ctx.lineTo(p.x + ux * outer, p.y + uy * outer);
+        ctx.moveTo(p.x - nx, p.y - ny);
+        ctx.lineTo(p.x + nx, p.y + ny);
         ctx.stroke();
       }
       return;
@@ -571,23 +552,26 @@
       }
     }
 
-    // Station building behind platform 1.
+    // Station building behind platform 1: a compact brick building with a hipped roof, chimney and forecourt.
     ctx.fillStyle = '#e7dec6';
-    ctx.fillRect(400, 112, 700, 18);
-    box(ctx, 440, 44, 620, 72, 4, '#d9694f');
+    ctx.fillRect(660, 112, 440, 18);
+    box(ctx, 700, 44, 250, 72, 4, '#d9694f');
     ctx.strokeStyle = 'rgba(0,0,0,.12)';
     ctx.lineWidth = 1;
     for (let y = 52; y < 116; y += 8) {
       ctx.beginPath();
-      ctx.moveTo(441, y);
-      ctx.lineTo(1059, y);
+      ctx.moveTo(701, y);
+      ctx.lineTo(949, y);
       ctx.stroke();
     }
+    // Chimney, behind the roof.
+    box(ctx, 906, 8, 18, 30, 2, '#b5533c', 2.2);
+    box(ctx, 903, 4, 24, 7, 2, '#8d3f2e', 2);
     ctx.beginPath();
-    ctx.moveTo(430, 48);
-    ctx.lineTo(1070, 48);
-    ctx.lineTo(1050, 24);
-    ctx.lineTo(450, 24);
+    ctx.moveTo(690, 48);
+    ctx.lineTo(960, 48);
+    ctx.lineTo(936, 24);
+    ctx.lineTo(714, 24);
     ctx.closePath();
     ctx.fillStyle = '#5a4b8f';
     ctx.fill();
@@ -595,27 +579,33 @@
     ctx.strokeStyle = INK;
     ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,.18)';
-    for (let x = 460; x < 1040; x += 22) ctx.fillRect(x, 28, 10, 16);
-    for (let i = 0; i < 5; i++) {
-      const x = 470 + i * 96 + (i > 2 ? 90 : 0);
-      box(ctx, x, 62, 34, 38, 15, '#cfeaff', 2);
+    for (let x = 722; x < 926; x += 22) ctx.fillRect(x, 28, 10, 16);
+    box(ctx, 706, 56, 120, 30, 8, '#fff7e0', 2.5);
+    label(ctx, 'SIBSEY STATION', 766, 71, 13, INK, 'center', 700);
+    for (const x of [712, 868]) {
+      box(ctx, x, 90, 26, 22, 10, '#cfeaff', 2);
       ctx.beginPath();
-      ctx.moveTo(x + 17, 62);
-      ctx.lineTo(x + 17, 100);
-      ctx.moveTo(x, 82);
-      ctx.lineTo(x + 34, 82);
+      ctx.moveTo(x + 13, 90);
+      ctx.lineTo(x + 13, 112);
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = INK;
       ctx.stroke();
     }
-    box(ctx, 570, 56, 160, 30, 8, '#fff7e0', 2.5);
-    label(ctx, 'SIBSEY STATION', 650, 71, 16, INK, 'center', 700);
-    // Arched station door.
+    box(ctx, 898, 62, 34, 38, 15, '#cfeaff', 2);
     ctx.beginPath();
-    ctx.moveTo(778, 116);
-    ctx.lineTo(778, 90);
-    ctx.arc(797, 90, 19, Math.PI, 0);
-    ctx.lineTo(816, 116);
+    ctx.moveTo(915, 62);
+    ctx.lineTo(915, 100);
+    ctx.moveTo(898, 82);
+    ctx.lineTo(932, 82);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    // Arched station door, with the clock above it.
+    ctx.beginPath();
+    ctx.moveTo(822, 116);
+    ctx.lineTo(822, 90);
+    ctx.arc(841, 90, 19, Math.PI, 0);
+    ctx.lineTo(860, 116);
     ctx.closePath();
     ctx.fillStyle = '#8a5a36';
     ctx.fill();
@@ -623,12 +613,12 @@
     ctx.strokeStyle = INK;
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(797, 71);
-    ctx.lineTo(797, 116);
+    ctx.moveTo(841, 71);
+    ctx.lineTo(841, 116);
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    circle(ctx, 791, 98, 2, '#ffd23f', 1);
-    circle(ctx, 803, 98, 2, '#ffd23f', 1);
+    circle(ctx, 835, 98, 2, '#ffd23f', 1);
+    circle(ctx, 847, 98, 2, '#ffd23f', 1);
 
     // Goods shed and dock.
     box(ctx, 740, 254, 300, 40, 4, '#c9803a');
@@ -665,25 +655,25 @@
       if (!track.through) bufferStop(ctx, track.side === 'left' ? track.xEnd - 10 : track.xEnd + 2, track.y);
     }
 
-    // Island platform.
-    box(ctx, 500, 168, 580, 50, 8, '#e8dfc6');
+    // Island platform: a sensible length with sloped ends, in front of the station building.
+    box(ctx, 680, 168, 400, 50, 8, '#e8dfc6');
     ctx.fillStyle = '#ffd93d';
-    ctx.fillRect(506, 170, 568, 3);
-    ctx.fillRect(506, 213, 568, 3);
-    for (const x of [545, 690, 835, 980]) {
+    ctx.fillRect(702, 170, 368, 3);
+    ctx.fillRect(702, 213, 368, 3);
+    for (const x of [724, 832, 940, 1048]) {
       ctx.fillStyle = INK;
       ctx.fillRect(x - 1.5, 168, 3, 44);
       circle(ctx, x, 168, 5, '#fff7a8', 1.8);
     }
-    for (const x of [560, 900]) {
+    for (const x of [778, 994]) {
       box(ctx, x - 16, 190, 32, 6, 2, '#8a5a36', 1.8);
       ctx.fillStyle = INK;
       ctx.fillRect(x - 13, 196, 3, 6);
       ctx.fillRect(x + 10, 196, 3, 6);
     }
     for (const [n, y] of [[1, 183], [2, 203]]) {
-      circle(ctx, 526, y, 8, '#4d96ff', 1.8);
-      label(ctx, String(n), 526, y + 0.5, 11, '#fff', 'center', 700);
+      circle(ctx, 698, y, 8, '#4d96ff', 1.8);
+      label(ctx, String(n), 698, y + 0.5, 11, '#fff', 'center', 700);
     }
 
     // Engine shed, on the left above the signal box, behind its own road.
@@ -792,7 +782,7 @@
     }
 
     function stationClock() {
-      const cx = 797;
+      const cx = 841;
       const cy = 54;
       circle(ctx, cx, cy, 15, '#fff', 2.5);
       const minutes = G.minute % 60;
@@ -1019,7 +1009,7 @@
         const yWait = dep.track === 'P1' ? 196 : 190;
         const yDoor = dep.track === 'P1' ? 176 : 210;
         for (let i = 0; i < count; i++) {
-          const wx = 420 + rand() * 600;
+          const wx = 710 + rand() * 340;
           const wy = yWait + rand() * 12 - 6;
           const color = PEOPLE[Math.floor(rand() * PEOPLE.length)];
           const bob = Math.sin(time / 300 + i) * 1.2;
@@ -1053,7 +1043,7 @@
           const p = Math.max(0, Math.min(1, (u.progress - start) / 0.3));
           if (p <= 0) continue;
           const t = p * p * (3 - 2 * p);
-          const wx = door.x + (rand() - 0.5) * 120 - 60;
+          const wx = Math.max(710, Math.min(1050, door.x + (rand() - 0.5) * 120 - 60));
           const wy = yWalk + rand() * 12 - 6;
           const color = PEOPLE[Math.floor(rand() * PEOPLE.length)];
           drawPerson(ctx, door.x + (wx - door.x) * t, yDoor + (wy - yDoor) * t, color, Math.sin(time / 80 + i) * 2);
