@@ -1112,9 +1112,13 @@
       const dep = G.activeDeparture(track.id);
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
       let x = track.xMin + 8;
-            // Shed 1's label sits just above its road; shed 2's goes just under its road.
-      const y = track.kind === 'shed' ? (track.id === 'SHED2' ? track.y - 40 : track.y + 30) : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
-      const lines = [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
+      // The engine shed labels are tucked in at the far left of the screen, out of the way of Pip and the engines:
+      // shed 1's just above its road, shed 2's just under its road.
+      const isShedRoad = track.kind === 'shed';
+      const y = isShedRoad ? (track.id === 'SHED2' ? track.y - 64 : track.y + 36) : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
+      const lines = isShedRoad
+        ? [{ text: track.name.toUpperCase(), size: 9, color: INK }, { text: `${track.cars.length}/${track.cap}`, size: 9, color: INK }]
+        : [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
         lines.push({ text: `${dep.name}  ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, size: 10, color: '#d9486a' });
@@ -1146,14 +1150,14 @@
         ctx.font = `700 ${line.size}px ${FONT}`;
         w = Math.max(w, ctx.measureText(line.text).width + 14);
       }
-      // Shed labels are centred on the shed building's roof (the signal box has moved, so both labels line up).
-      if (track.kind === 'shed') x = 122 - w / 2;
+      if (isShedRoad) x = 4;
       const h = 6 + lines.length * 13;
       const top = y + 12 - h;
       path(ctx, x, top, w, h, 6);
-      ctx.fillStyle = track.locked ? 'rgba(80,90,110,.85)' : 'rgba(255,255,255,.9)';
+      // The shed labels look just like the "PIP'S SIDING" sign: cream, with small capital letters.
+      ctx.fillStyle = isShedRoad ? '#fff7e0' : track.locked ? 'rgba(80,90,110,.85)' : 'rgba(255,255,255,.9)';
       ctx.fill();
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = isShedRoad ? 2 : 1.8;
       ctx.strokeStyle = INK;
       ctx.stroke();
       lines.forEach((line, i) => label(ctx, line.text, x + 7, top + 10 + i * 13, line.size, line.color, 'left', 700));
