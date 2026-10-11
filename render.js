@@ -1112,8 +1112,8 @@
       const dep = G.activeDeparture(track.id);
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
       let x = track.xMin + 8;
-      // The engine shed labels sit above their engines, clear of Pip.
-      const y = track.kind === 'shed' ? track.y - 62 : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
+            // Shed 1's label sits just above its road; shed 2's goes just under its road.
+      const y = track.kind === 'shed' ? (track.id === 'SHED2' ? track.y - 40 : track.y + 30) : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
       const lines = [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
