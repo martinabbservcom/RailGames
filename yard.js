@@ -694,7 +694,7 @@
         }
       }
       if (freeplay) {
-        return { text: "Free play: put a train with an engine at the front and a guard's van or brake van at the back on a platform or the goods road and it leaves after 2 minutes." };
+        return { text: "Free play: put a train with an engine at the front and a guard's van or brake van at the back on a platform or the goods road and it leaves after 2 minutes. Passenger trains can only leave from the platforms." };
       }
       // 2. Work on the next train to leave.
       const dep = departures
@@ -1126,6 +1126,9 @@
     const FREE_LEAVE_AFTER = 2; // game minutes a built train waits before it goes
     let nextFreeArrival = level.start;
 
+    // Passenger trains can't leave from the goods road (goods trains can leave from the platforms).
+    G.passengersOnGoods = track => track.kind === 'goods' && track.cars.some(v => isPassenger(v.type));
+
     // A train needs a guard's van or brake van at the back before it may leave.
     const isVan = type => type === 'guard' || type === 'brake';
 
@@ -1179,7 +1182,7 @@
         const dep = activeDeparture(track.id);
         const front = track.cars[track.cars.length - 1];
         const fit = track.cars.length >= 2 && !busy.has(track.id) && !isUnloading(track.id) &&
-          isLoco(front.type) && !needsService(front) && isVan(track.cars[0].type);
+          isLoco(front.type) && !needsService(front) && isVan(track.cars[0].type) && !G.passengersOnGoods(track);
         if (dep) {
           if (!fit || !formationMatches(dep, track)) departures.splice(departures.indexOf(dep), 1);
         } else if (fit) {

@@ -97,6 +97,16 @@
     ctx.stroke();
   }
 
+  // An unhappy mouth, in the same place as the smile.
+  function frown(ctx, x, y, w) {
+    ctx.beginPath();
+    ctx.arc(x, y + w * 2, w, 1.15 * Math.PI, 1.85 * Math.PI);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = INK;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
   function wheel(ctx, x, y, r) {
     circle(ctx, x, y, r, '#39435c', 1.5);
     circle(ctx, x, y, r * 0.42, '#c9d3e6');
@@ -211,7 +221,7 @@
     }
   };
 
-  function drawEngine(ctx, color, trim, kind) {
+  function drawEngine(ctx, color, trim, kind, sad = false) {
     if (kind === 'diesel') {
       box(ctx, -23, -14, 46, 22, 6, color);
       box(ctx, -23, -26, 19, 14, 5, shade(color, 0.12));
@@ -222,7 +232,10 @@
       ctx.lineWidth = 1.5;
       ctx.strokeRect(-22, -2, 44, 4);
       eyes(ctx, 6, -8, 6, 4.2, 1);
-      smile(ctx, 10, -6, 8);
+      if (sad) {
+        frown(ctx, 10, -6, 8);
+        circle(ctx, 12, -2.5, 1.8, '#6fc3ff');
+      } else smile(ctx, 10, -6, 8);
       circle(ctx, 22, -9, 2.5, '#fff7a8', 1);
       for (const x of [-12, 0, 12]) wheel(ctx, x, 11, 6);
       return;
@@ -245,15 +258,18 @@
     ctx.fillStyle = '#39435c';
     ctx.fill();
     eyes(ctx, 8, -7, 5.2, 4, 1);
-    smile(ctx, 13, -4, 6);
+    if (sad) {
+      frown(ctx, 13, -4, 6);
+      circle(ctx, 13.2, -2, 1.7, '#6fc3ff');
+    } else smile(ctx, 13, -4, 6);
     wheel(ctx, -13, 9, 8);
     wheel(ctx, 4, 11, 6);
     wheel(ctx, 17, 11, 6);
   }
 
-  function drawVehicleBody(ctx, type) {
+  function drawVehicleBody(ctx, type, sad = false) {
     const t = Y.TYPES[type];
-    if (t.kind === 'loco') drawEngine(ctx, t.color, t.trim, type);
+    if (t.kind === 'loco') drawEngine(ctx, t.color, t.trim, type, sad);
     else {
       SPRITES[type](ctx, t.color);
       wheel(ctx, -14, 11, 6);
@@ -928,7 +944,8 @@
         ctx.strokeStyle = extra.glow;
         ctx.stroke();
       }
-      drawVehicleBody(ctx, pose.v.type);
+      // Engines of a derailed train look unhappy.
+      drawVehicleBody(ctx, pose.v.type, !!pose.track && G.isDerailed(pose.track));
       ctx.restore();
     }
 
@@ -945,6 +962,9 @@
         const arrived = track.cars.length > 0 && track.cars[0].arrived;
         const note = arrived || G.isUnloading(track.id) ? '' : G.formationHint(dep, track);
         if (note) lines.push({ text: note, size: 10, color: note === 'Perfect!' ? '#1f9d5b' : '#b5651d' });
+      }
+      if (G.freeplay && G.passengersOnGoods(track)) {
+        lines.push({ text: 'Passenger trains leave from a platform', size: 10, color: '#b5651d' });
       }
       if (track.signalFailedUntil > G.minute) {
         lines.push({ text: `Signal failure · trains leave slowly (${Math.max(1, Math.ceil(track.signalFailedUntil - G.minute))} min)`, size: 10, color: '#d92f2f' });

@@ -377,15 +377,17 @@
         // Clicking a vehicle on a valid target track counts as clicking the track.
         dropOn(car.track);
       } else {
-        // An arrived engine leads its train, so picking it takes the whole train along with it.
+        // Picking an engine takes just that engine (it runs to the shed and leaves its train where it stands);
+        // pick the last vehicle of a train to move the whole train.
         const from = game.byId.get(car.track);
-        let idx = car.idx;
-        const hauling = idx === 0 && from.kind !== 'shed' && from.cars.length > 1 && game.needsService(from.cars[0]);
-        if (hauling) idx = from.cars.length - 1;
-        selected = { track: car.track, idx };
+        selected = { track: car.track, idx: car.idx };
         Y.sound.pick();
-        if (hauling) toast('The engine takes its whole train. Put it in a siding and the tired engine will go to the shed.');
-        else if (game.cutNeedsService(car.track, idx + 1) && from.cars.slice(0, idx + 1).every(v => game.isLoco(v.type))) toast('That engine is tired, so it can only go to the engine shed.');
+        const engineOnly = from.cars.slice(0, car.idx + 1).every(v => game.isLoco(v.type));
+        if (game.cutNeedsService(car.track, car.idx + 1) && engineOnly) {
+          toast(from.kind !== 'shed' && from.cars.length > car.idx + 1
+            ? 'Engine picked: send it to an engine shed and its train stays here. To move the whole train, pick its last vehicle.'
+            : 'That engine is tired, so it can only go to the engine shed.');
+        }
       }
       return;
     }
