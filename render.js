@@ -429,7 +429,8 @@
     return { x: a.x + dx * t, y: a.y + dy * t, angle: Math.atan2(dy, dx) };
   }
 
-  function drawScenery(ctx, game) {
+  // Trees are drawn onto `treeCtx`, a separate layer that goes on top of the road traffic.
+  function drawScenery(ctx, game, treeCtx) {
     const { W, H } = game;
     const rand = mulberry(7);
 
@@ -538,7 +539,7 @@
       const x = 20 + rand() * 210;
       const y = 150 + rand() * 480;
       if (free(x, y, 18) && !(x < 125 && y > 600)) {
-        tree(ctx, x, y, 0.8 + rand() * 0.5, ['#4fb04f', '#5cc05c', '#3fa05a'][Math.floor(rand() * 3)]);
+        tree(treeCtx, x, y, 0.8 + rand() * 0.5, ['#4fb04f', '#5cc05c', '#3fa05a'][Math.floor(rand() * 3)]);
         spots.push([x, y, 18]);
         treeCount++;
       }
@@ -721,6 +722,7 @@
     let G = game;
     let scale = 1;
     let scenery = null;
+    let treeLayer = null;
     const particles = [];
     let lastPuff = 0;
     const clouds = [[120, 40, 1], [420, 70, 0.8], [760, 30, 1.2]];
@@ -740,7 +742,12 @@
       scenery.height = canvas.height;
       const c = scenery.getContext('2d');
       c.scale(scale, scale);
-      drawScenery(c, G);
+      treeLayer = document.createElement('canvas');
+      treeLayer.width = canvas.width;
+      treeLayer.height = canvas.height;
+      const t = treeLayer.getContext('2d');
+      t.scale(scale, scale);
+      drawScenery(c, G, t);
     }
 
     function cloud(x, y, s) {
@@ -1183,13 +1190,15 @@
       ctx.drawImage(scenery, 0, 0, G.W, G.H);
       updateTraffic(dt);
       drawTraffic();
+      // Trees stand in front of the road, so vehicles drive behind them.
+      ctx.drawImage(treeLayer, 0, 0, G.W, G.H);
 
       for (const [i, c] of clouds.entries()) {
         const x = ((c[0] + time / (60 + i * 25)) % (G.W + 200)) - 100;
         cloud(x, c[1], c[2]);
       }
       // Clouds drift behind the station building.
-      ctx.drawImage(scenery, 425 * scale, 18 * scale, 650 * scale, 104 * scale, 425, 18, 650, 104);
+      ctx.drawImage(scenery, 686 * scale, 2 * scale, 278 * scale, 120 * scale, 686, 2, 278, 120);
       windmill(time);
       stationClock();
 
