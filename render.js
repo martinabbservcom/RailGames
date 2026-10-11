@@ -449,7 +449,7 @@
   }
 
   // Trees are drawn onto `treeCtx`, a separate layer that goes on top of the road traffic.
-  function drawScenery(ctx, game, treeCtx) {
+  function drawScenery(ctx, game, treeCtx, stationCtx) {
     const { W, H } = game;
     const rand = mulberry(7);
 
@@ -575,70 +575,72 @@
     // Station building behind platform 1: a compact brick building with a hipped roof, chimney and forecourt.
     ctx.fillStyle = '#e7dec6';
     ctx.fillRect(660, 112, 440, 18);
-    box(ctx, 700, 44, 250, 72, 4, '#d9694f');
-    ctx.strokeStyle = 'rgba(0,0,0,.12)';
-    ctx.lineWidth = 1;
+    // The building itself goes on its own layer, drawn over the sky, clouds and planes.
+    const sctx = stationCtx;
+    box(sctx, 700, 44, 250, 72, 4, '#d9694f');
+    sctx.strokeStyle = 'rgba(0,0,0,.12)';
+    sctx.lineWidth = 1;
     for (let y = 52; y < 116; y += 8) {
-      ctx.beginPath();
-      ctx.moveTo(701, y);
-      ctx.lineTo(949, y);
-      ctx.stroke();
+      sctx.beginPath();
+      sctx.moveTo(701, y);
+      sctx.lineTo(949, y);
+      sctx.stroke();
     }
     // Chimney, behind the roof.
-    box(ctx, 906, 8, 18, 30, 2, '#b5533c', 2.2);
-    box(ctx, 903, 4, 24, 7, 2, '#8d3f2e', 2);
-    ctx.beginPath();
-    ctx.moveTo(690, 48);
-    ctx.lineTo(960, 48);
-    ctx.lineTo(936, 24);
-    ctx.lineTo(714, 24);
-    ctx.closePath();
-    ctx.fillStyle = '#5a4b8f';
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = INK;
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.18)';
-    for (let x = 722; x < 926; x += 22) ctx.fillRect(x, 28, 10, 16);
-    box(ctx, 706, 56, 120, 30, 8, '#fff7e0', 2.5);
-    label(ctx, 'SIBSEY STATION', 766, 71, 13, INK, 'center', 700);
+    box(sctx, 906, 8, 18, 30, 2, '#b5533c', 2.2);
+    box(sctx, 903, 4, 24, 7, 2, '#8d3f2e', 2);
+    sctx.beginPath();
+    sctx.moveTo(690, 48);
+    sctx.lineTo(960, 48);
+    sctx.lineTo(936, 24);
+    sctx.lineTo(714, 24);
+    sctx.closePath();
+    sctx.fillStyle = '#5a4b8f';
+    sctx.fill();
+    sctx.lineWidth = 2.5;
+    sctx.strokeStyle = INK;
+    sctx.stroke();
+    sctx.fillStyle = 'rgba(255,255,255,.18)';
+    for (let x = 722; x < 926; x += 22) sctx.fillRect(x, 28, 10, 16);
+    box(sctx, 706, 56, 120, 30, 8, '#fff7e0', 2.5);
+    label(sctx, 'SIBSEY STATION', 766, 71, 13, INK, 'center', 700);
     for (const x of [712, 868]) {
-      box(ctx, x, 90, 26, 22, 10, '#cfeaff', 2);
-      ctx.beginPath();
-      ctx.moveTo(x + 13, 90);
-      ctx.lineTo(x + 13, 112);
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = INK;
-      ctx.stroke();
+      box(sctx, x, 90, 26, 22, 10, '#cfeaff', 2);
+      sctx.beginPath();
+      sctx.moveTo(x + 13, 90);
+      sctx.lineTo(x + 13, 112);
+      sctx.lineWidth = 1.5;
+      sctx.strokeStyle = INK;
+      sctx.stroke();
     }
-    box(ctx, 898, 62, 34, 38, 15, '#cfeaff', 2);
-    ctx.beginPath();
-    ctx.moveTo(915, 62);
-    ctx.lineTo(915, 100);
-    ctx.moveTo(898, 82);
-    ctx.lineTo(932, 82);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = INK;
-    ctx.stroke();
+    box(sctx, 898, 62, 34, 38, 15, '#cfeaff', 2);
+    sctx.beginPath();
+    sctx.moveTo(915, 62);
+    sctx.lineTo(915, 100);
+    sctx.moveTo(898, 82);
+    sctx.lineTo(932, 82);
+    sctx.lineWidth = 1.5;
+    sctx.strokeStyle = INK;
+    sctx.stroke();
     // Arched station door, with the clock above it.
-    ctx.beginPath();
-    ctx.moveTo(822, 116);
-    ctx.lineTo(822, 90);
-    ctx.arc(841, 90, 19, Math.PI, 0);
-    ctx.lineTo(860, 116);
-    ctx.closePath();
-    ctx.fillStyle = '#8a5a36';
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = INK;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(841, 71);
-    ctx.lineTo(841, 116);
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    circle(ctx, 835, 98, 2, '#ffd23f', 1);
-    circle(ctx, 847, 98, 2, '#ffd23f', 1);
+    sctx.beginPath();
+    sctx.moveTo(822, 116);
+    sctx.lineTo(822, 90);
+    sctx.arc(841, 90, 19, Math.PI, 0);
+    sctx.lineTo(860, 116);
+    sctx.closePath();
+    sctx.fillStyle = '#8a5a36';
+    sctx.fill();
+    sctx.lineWidth = 2.5;
+    sctx.strokeStyle = INK;
+    sctx.stroke();
+    sctx.beginPath();
+    sctx.moveTo(841, 71);
+    sctx.lineTo(841, 116);
+    sctx.lineWidth = 1.5;
+    sctx.stroke();
+    circle(sctx, 835, 98, 2, '#ffd23f', 1);
+    circle(sctx, 847, 98, 2, '#ffd23f', 1);
 
     // Goods shed and dock.
     box(ctx, 740, 254, 300, 40, 4, '#c9803a');
@@ -749,6 +751,7 @@
     let scale = 1;
     let scenery = null;
     let treeLayer = null;
+    let stationLayer = null;
     const particles = [];
     let lastPuff = 0;
     const clouds = [[120, 40, 1], [420, 70, 0.8], [760, 30, 1.2]];
@@ -773,7 +776,12 @@
       treeLayer.height = canvas.height;
       const t = treeLayer.getContext('2d');
       t.scale(scale, scale);
-      drawScenery(c, G, t);
+      stationLayer = document.createElement('canvas');
+      stationLayer.width = canvas.width;
+      stationLayer.height = canvas.height;
+      const st = stationLayer.getContext('2d');
+      st.scale(scale, scale);
+      drawScenery(c, G, t, st);
     }
 
     function cloud(x, y, s) {
@@ -1348,8 +1356,8 @@
         cloud(x, c[1], c[2]);
       }
       updatePlane(time, dt);
-      // Clouds (and planes) drift behind the station building.
-      ctx.drawImage(scenery, 686 * scale, 2 * scale, 278 * scale, 120 * scale, 686, 2, 278, 120);
+      // Clouds (and planes) drift behind the station building, which has its own layer so it hides only what it covers.
+      ctx.drawImage(stationLayer, 0, 0, G.W, G.H);
       windmill(time);
       stationClock();
 
