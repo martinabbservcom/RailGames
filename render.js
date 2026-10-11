@@ -1113,9 +1113,9 @@
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
       let x = track.xMin + 8;
       // The engine shed labels are tucked in at the far left of the screen, out of the way of Pip and the engines:
-      // shed 1's just above its road, shed 2's just under its road.
+      // shed 1's right next to the top of its road, shed 2's just under its road.
       const isShedRoad = track.kind === 'shed';
-      const y = isShedRoad ? (track.id === 'SHED2' ? track.y - 64 : track.y + 36) : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
+      const y = isShedRoad ? (track.id === 'SHED2' ? track.y - 34 : track.y + 36) : track.kind === 'turntable' ? track.y - 58 : track.y - 33;
       const lines = isShedRoad
         ? [{ text: track.name.toUpperCase(), size: 9, color: INK }, { text: `${track.cars.length}/${track.cap}`, size: 9, color: INK }]
         : [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
