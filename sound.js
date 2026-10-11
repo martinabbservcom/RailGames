@@ -176,34 +176,63 @@
   }
 
   // ---- Station announcements (a chime, then a spoken message where the browser can do speech) ----
-  let voice = null;
-  // Prefer a bright, friendly-sounding English voice (the list differs on every device).
-  const FRIENDLY = /(google uk english female|zira|hazel|susan|samantha|karen|tessa|moira|fiona|libby|sonia|female)/i;
-  function pickVoice() {
-    const voices = window.speechSynthesis.getVoices();
-    voice = voices.find(v => /^en/i.test(v.lang) && FRIENDLY.test(v.name)) ||
-      voices.find(v => /en[-_]GB/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || null;
-  }
-  if ('speechSynthesis' in window) {
-    pickVoice();
-    window.speechSynthesis.onvoiceschanged = pickVoice;
-  }
-
-  function speak(text, urgent) {
-    if (muted || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
-    const synth = window.speechSynthesis;
-    // Don't talk over the last announcement unless this one is urgent.
-    if (synth.speaking && !urgent) return;
-    if (urgent) synth.cancel();
-    if (!voice) pickVoice();
-    const talk = new SpeechSynthesisUtterance(text);
-    if (voice) talk.voice = voice;
-    talk.lang = voice ? voice.lang : 'en-GB';
-    // A high, bouncy, slightly quick voice, like a cartoon station master.
-    talk.rate = 1.12;
-    talk.pitch = 1.75;
-    talk.volume = 0.7;
-    synth.speak(talk);
+  // The announcer babbles in a squeaky cartoon "animal talk" made from little blips, one for each letter,
+  // so it sounds the same everywhere and is a lot funnier than a real computer voice.
+  let announcingUntil = 0;
+  function babble(text) {
+    const a = audio();
+    if (!a) return;
+    const letters = text.toLowerCase().replace(/[^a-z!?., ]/g, '');
+    const base = 330 * (0.9 + Math.random() * 0.35); // each announcement has its own pitch
+    let t = a.currentTime + 0.02;
+    let rising = false;
+    for (let i = 0; i < letters.length; i++) {
+      const ch = letters[i];
+      if (ch === ' ') {
+        t += 0.05;
+        continue;
+      }
+      if (ch === ',' || ch === '.') {
+        t += 0.16;
+        continue;
+      }
+      if (ch === '!' || ch === '?') {
+        rising = true;
+        t += 0.05;
+        continue;
+      }
+      const code = ch.charCodeAt(0) - 97;
+      const vowel = 'aeiou'.includes(ch);
+      // Each letter squeaks at its own pitch, with vowels held a little longer and higher.
+      const freq = base * Math.pow(2, ((code * 7) % 12) / 12 + (vowel ? 0.5 : 0)) * (1 + 0.04 * Math.sin(i * 1.7));
+      const length = vowel ? 0.085 : 0.05;
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = vowel ? 'triangle' : 'square';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * (vowel ? 1.18 : 0.9), t + length);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vowel ? 0.07 : 0.035, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
+      osc.connect(gain).connect(a.destination);
+      osc.start(t);
+      osc.stop(t + length + 0.02);
+      t += length * 0.85;
+    }
+    // A big cheerful squeak at the end of an excited announcement ("boing!").
+    if (rising) {
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(base * 1.5, t + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(base * 3.4, t + 0.3);
+      gain.gain.setValueAtTime(0.0001, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.11, t + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+      osc.connect(gain).connect(a.destination);
+      osc.start(t + 0.05);
+      osc.stop(t + 0.4);
+    }
   }
 
   // ---- Rain: a soft hiss that follows how hard it is raining ----
@@ -234,15 +263,15 @@
   Y.sound = {
     setMuted(value) {
       muted = value;
-      if (value && 'speechSynthesis' in window) window.speechSynthesis.cancel();
     },
     setRain,
-    announce(text, urgent = false) {
-      if (muted) return;
-      // "Ding-dong" before every announcement.
+    announce(text) {
+      if (muted || Date.now() < announcingUntil) return;
+      announcingUntil = Date.now() + 1000 + text.length * 62;
+      // "Ding-dong" before every announcement, then the cartoon babble.
       tone(784, 0, 0.32, 'sine', 0.13);
       tone(622, 0.28, 0.5, 'sine', 0.13);
-      setTimeout(() => speak(text, urgent), 700);
+      setTimeout(() => babble(text), 650);
     },
     bell() {
       for (let i = 0; i < 4; i++) tone(1568, i * 0.17, 0.2, 'sine', 0.1);
