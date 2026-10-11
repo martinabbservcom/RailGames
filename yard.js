@@ -28,9 +28,9 @@
     { id: 'S2', name: 'Siding 2', y: 448, xEnd: 960, through: false, kind: 'siding' },
     { id: 'S3', name: 'Siding 3', y: 512, xEnd: 960, through: false, kind: 'siding' },
     // The engine shed branches off the spine to the LEFT, above the signal box, and runs leftwards.
-    { id: 'SHED', name: 'Engine shed 1', y: 562, xEnd: 26, through: false, kind: 'shed', side: 'left' },
+    { id: 'SHED', name: 'Engine shed 2', y: 562, xEnd: 26, through: false, kind: 'shed', side: 'left' },
     // A second shed road on the other side of the shed building.
-    { id: 'SHED2', name: 'Engine shed 2', y: 485, xEnd: 26, through: false, kind: 'shed', side: 'left' },
+    { id: 'SHED2', name: 'Engine shed 1', y: 485, xEnd: 26, through: false, kind: 'shed', side: 'left' },
     // Pip's own little siding, just big enough for the shunting engine, so Pip never has to share a shed road.
     { id: 'PIP', name: "Pip's siding", y: 626, xEnd: 108, through: false, kind: 'pip', side: 'left' }
   ];

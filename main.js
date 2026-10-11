@@ -377,9 +377,15 @@
         // Clicking a vehicle on a valid target track counts as clicking the track.
         dropOn(car.track);
       } else {
-        selected = { track: car.track, idx: car.idx };
+        // An arrived engine leads its train, so picking it takes the whole train along with it.
+        const from = game.byId.get(car.track);
+        let idx = car.idx;
+        const hauling = idx === 0 && from.kind !== 'shed' && from.cars.length > 1 && game.needsService(from.cars[0]);
+        if (hauling) idx = from.cars.length - 1;
+        selected = { track: car.track, idx };
         Y.sound.pick();
-        if (game.cutNeedsService(car.track, car.idx + 1)) toast('That engine is tired: on its own it can only go to the engine shed, and with its train only to a siding.');
+        if (hauling) toast('The engine takes its whole train. Put it in a siding and the tired engine will go to the shed.');
+        else if (game.cutNeedsService(car.track, idx + 1) && from.cars.slice(0, idx + 1).every(v => game.isLoco(v.type))) toast('That engine is tired, so it can only go to the engine shed.');
       }
       return;
     }
@@ -409,7 +415,9 @@
       else if (game.unloadingKind(trackId) === 'derail') message = 'A derailed train is blocking that road.';
       else if (game.isUnloading(trackId)) message = game.unloadingKind(trackId) === 'goods' ? 'Goods are still being unloaded there. Please wait.' : 'Passengers are still getting off there.';
       else if (game.cutNeedsService(selected.track, selected.idx + 1) && t.kind !== 'shed') {
-        message = 'A tired engine can only go to an engine shed on its own, or to a siding with its train.';
+        message = game.byId.get(selected.track).cars.slice(0, selected.idx + 1).every(v => game.isLoco(v.type))
+          ? 'A tired engine on its own can only go to an engine shed.'
+          : 'A train with a tired engine can only go into a siding.';
       }
       toast(message, 'bad');
       return;

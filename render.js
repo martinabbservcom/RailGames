@@ -868,8 +868,8 @@
       const dep = G.activeDeparture(track.id);
       const title = `${track.name}  ${track.cars.length}/${track.cap}`;
       let x = track.xMin + 8;
-      // The engine shed labels sit below their roads and are drawn over the engines.
-      const y = track.kind === 'shed' ? track.y + 30 : track.y - 33;
+      // The engine shed labels sit above their engines, clear of Pip.
+      const y = track.kind === 'shed' ? track.y - 62 : track.y - 33;
       const lines = [{ text: title, size: 11, color: track.locked ? '#dfe6f2' : INK }];
       if (dep) {
         const m = Math.round(dep.at + G.level.start);
@@ -894,8 +894,8 @@
         ctx.font = `700 ${line.size}px ${FONT}`;
         w = Math.max(w, ctx.measureText(line.text).width + 14);
       }
-      // Shed labels are centred on the shed building's roof (the lower road's label is nudged left of the signal box).
-      if (track.kind === 'shed') x = (track.id === 'SHED2' ? 122 : 104) - w / 2;
+      // Shed labels are centred on the shed building's roof (the signal box has moved, so both labels line up).
+      if (track.kind === 'shed') x = 122 - w / 2;
       const h = 6 + lines.length * 13;
       const top = y + 12 - h;
       path(ctx, x, top, w, h, 6);
