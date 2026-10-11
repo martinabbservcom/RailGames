@@ -510,7 +510,7 @@
         spots.push([r.x, r.y, 12]);
       }
     }
-    spots.push([70, 335, 48]);
+    spots.push([60, 295, 48]);
     ctx.setLineDash([10, 12]);
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
@@ -760,8 +760,8 @@
     }
 
     function windmill(time) {
-      const x = 70;
-      const y = 330;
+      const x = 60;
+      const y = 290;
       ctx.save();
       ctx.translate(x, y);
       ctx.beginPath();
@@ -778,9 +778,9 @@
       box(ctx, -5, 22, 10, 18, 5, '#8a5a36', 1.5);
       ctx.translate(0, -12);
       ctx.rotate(time / 1800);
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
         ctx.save();
-        ctx.rotate((i * Math.PI) / 2);
+        ctx.rotate((i * Math.PI) / 3);
         box(ctx, -3, -42, 10, 40, 2, '#fff', 1.8);
         ctx.restore();
       }
