@@ -366,7 +366,7 @@
         // in the sleepers and they don't poke across the main line.
         let inner = 10;
         let outer = 10;
-        if (u > track.uBranch) {
+        if (u > track.uBranch && track.spineContinues) {
           const d = ((p.x - b.x) * (b.y - bd.y) - (p.y - b.y) * (b.x - bd.x)) / bl;
           if (Math.abs(d) < 13) {
             const s = d >= 0 ? 1 : -1;
@@ -964,9 +964,8 @@
 
     // Entry signals: one at the throat of each road that a train arrives on. Red until the road is empty, amber when a train is due soon.
     function entrySignals() {
-      const used = new Set(G.arrivals.map(a => a.track));
       for (const track of G.tracks) {
-        if (track.locked || !used.has(track.id)) continue;
+        if (track.locked || !track.through) continue;
         // Trains come in from the right: the entry signal (arrow pointing left) stands beside the road at its right-hand end.
         signalPost(track.xEnd + 58, track.y - 16, G.entrySignal(track.id), -1);
       }

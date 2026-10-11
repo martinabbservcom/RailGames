@@ -126,6 +126,8 @@
     const tracks = TRACK_DEFS.map(buildTrack);
     const byId = new Map(tracks.map(track => [track.id, track]));
     for (const track of tracks) track.locked = !level.tracks.includes(track.id);
+    // True if the spine carries on past where this road branches off (some other road lies further up it).
+    for (const track of tracks) track.spineContinues = tracks.some(o => o !== track && o.side !== 'left' && o.y < track.y);
 
     let nextId = 1;
     const makeVehicle = type => ({ id: nextId++, type });
