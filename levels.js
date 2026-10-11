@@ -18,6 +18,16 @@
     brake: { name: 'Brake van', kind: 'wagon', color: '#d94f4f' }
   };
 
+  // Upgrades bought with the stars earned on the numbered days (see the Upgrades screen).
+  Y.UPGRADES = [
+    { id: 'pip', icon: '\u26A1', name: 'Turbo Pip', cost: 4, text: 'Pip shunts about 50% faster.' },
+    { id: 'service', icon: '\U0001F527', name: 'Quick service', cost: 6, text: 'Engines need 3 minutes in the shed instead of 5.' },
+    { id: 'unload', icon: '\U0001F6AA', name: 'Wide doors', cost: 6, text: 'Passengers and goods unload in about half the time.' },
+    { id: 'grace', icon: '\U0001F60A', name: 'Patient passengers', cost: 8, text: 'Trains wait 9 minutes before they are cancelled, not 6.' },
+    { id: 'crew', icon: '\U0001F3D7\uFE0F', name: 'Rapid recovery', cost: 8, text: 'The recovery crane works nearly twice as fast.' },
+    { id: 'safe', icon: '\U0001F6E0\uFE0F', name: 'Track maintenance', cost: 10, text: 'Derailments and engine breakdowns are half as likely.' }
+  ];
+
   // A departure's `spec` lists the train from the FRONT to the back, so it starts
   // with 'loco' (any engine). Track lists in the game run from the yard entrance
   // (left) to the far end (right), so the front of a train is the last vehicle.
@@ -30,6 +40,9 @@
   Y.LEVELS = [
     {
       id: 1,
+      tutorial: true,
+      sky: { hour: 7, rate: 1.2 },
+      weather: 'clear',
       title: 'Sunny Morning',
       blurb: 'Your first day at Sibsey Station. Two little trains to build.',
       start: 8 * 60,
@@ -47,6 +60,8 @@
     },
     {
       id: 2,
+      sky: { hour: 11, rate: 1.6 },
+      weather: 'cloudy',
       title: 'Market Day',
       blurb: 'Passengers and freight today. Use the goods road for the wagons.',
       start: 8 * 60,
@@ -61,12 +76,14 @@
       departures: [
         { at: 20, track: 'P1', name: 'Market Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] },
         { at: 32, track: 'G', name: 'Coal to Cityville', dest: 'Cityville', spec: ['loco', 'coal', 'coal', 'tank', 'brake'] },
-        { at: 46, track: 'P2', name: 'Café Flyer', dest: 'Lakeside', spec: ['loco', 'coach', 'buffet', 'first', 'guard'] },
+        { at: 46, track: 'P2', name: 'Café Flyer', special: 'vip', dest: 'Lakeside', spec: ['loco', 'coach', 'buffet', 'first', 'guard'] },
         { at: 62, track: 'G', name: 'Farm Goods', dest: 'Dockside', spec: ['loco', 'box', 'box', 'logs', 'brake'] }
       ]
     },
     {
       id: 3,
+      sky: { hour: 15.5, rate: 2.6 },
+      weather: 'clear',
       title: 'Festival Weekend',
       blurb: 'The busiest day of the year. Plan ahead and keep the yard moving!',
       start: 8 * 60,
@@ -83,20 +100,23 @@
         { at: 22, from: 'Castle Hill', track: 'P1', loco: 'steam', cars: ['first', 'logs', 'coach', 'brake', 'guard', 'buffet'] }
       ],
       departures: [
-        { at: 16, track: 'P1', name: 'Early Commuter', dest: 'Cityville', spec: ['loco', 'coach', 'coach', 'coach', 'guard'] },
-        { at: 28, track: 'G', name: 'Milk and Mail', dest: 'Greenfield', spec: ['loco', 'box', 'box', 'brake'] },
-        { at: 42, track: 'P2', name: 'Festival Special', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'coach', 'guard'] },
+        { at: 16, track: 'P1', name: 'Early Commuter', special: 'heritage', dest: 'Cityville', spec: ['steam', 'coach', 'coach', 'coach', 'guard'] },
+        { at: 28, track: 'G', name: 'Milk and Mail', special: 'mail', dest: 'Greenfield', spec: ['loco', 'box', 'box', 'brake'] },
+        { at: 42, track: 'P2', name: 'Festival Special', special: 'vip', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'coach', 'guard'] },
         { at: 58, track: 'G', name: 'Timber Express', dest: 'Dockside', spec: ['loco', 'logs', 'logs', 'logs', 'brake'] },
         { at: 72, track: 'P1', name: 'Café Cruiser', dest: 'Skegness', spec: ['loco', 'buffet', 'coach', 'coach', 'guard'] },
-        { at: 88, track: 'P2', name: 'Golden Jubilee', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] }
+        { at: 88, track: 'P2', name: 'Golden Jubilee', special: 'vip', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] }
       ]
     },
     {
       id: 4,
+      sky: { hour: 16.5, rate: 2.2 },
+      weather: 'rain',
+      turntable: true,
       title: 'Rush Hour',
-      blurb: 'Trains pour into the platforms. Clear them quickly, but keep your own trains off the platforms until they are due!',
+      blurb: 'Rain on the rails! Engines now face a direction: turn them round on the turntable before they pull a train. Clear the platforms quickly, but keep your own trains off them until they are due!',
       start: 8 * 60,
-      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2', 'TURN'],
       shed: ['diesel', 'steam'],
       initial: {
         S2: ['coal', 'brake']
@@ -109,9 +129,9 @@
         { at: 30, from: 'Castle Hill', track: 'P1', loco: 'diesel', cars: ['coach', 'buffet', 'coach', 'guard'] }
       ],
       departures: [
-        { at: 18, track: 'P1', name: 'Morning Express', dest: 'Cityville', spec: ['loco', 'coach', 'coach', 'guard'] },
-        { at: 34, track: 'G', name: 'Brick Train', dest: 'Dockside', spec: ['loco', 'box', 'box', 'brake'] },
-        { at: 46, track: 'P2', name: 'Lake Flyer', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'guard'] },
+        { at: 18, track: 'P1', name: 'Morning Express', special: 'heritage', dest: 'Cityville', spec: ['steam', 'coach', 'coach', 'guard'] },
+        { at: 34, track: 'G', name: 'Brick Train', special: 'mail', dest: 'Dockside', spec: ['loco', 'box', 'box', 'brake'] },
+        { at: 46, track: 'P2', name: 'Lake Flyer', special: 'vip', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'guard'] },
         { at: 62, track: 'P1', name: 'Evening Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] }
       ]
     },
@@ -121,8 +141,11 @@
       blurb: 'Trains keep coming and it only gets busier, with track works and derailments. How long can you last? The day ends when you miss 3 trains.',
       endless: true,
       events: true,
+      turntable: true,
+      pullLimit: 5,
+      sky: { hour: 6.5, rate: 6 },
       start: 8 * 60,
-      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2', 'TURN'],
       shed: ['diesel', 'steam'],
       initial: {},
       arrivals: [],
@@ -134,8 +157,11 @@
       blurb: "No timetable. A train arrives every 10 minutes if a road is free. Build your own trains: a train with an engine in front and a guard's or brake van at the back leaves after 2 minutes.",
       freeplay: true,
       events: true,
+      turntable: true,
+      pullLimit: 5,
+      sky: { hour: 7, rate: 6 },
       start: 8 * 60,
-      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2', 'TURN'],
       shed: ['steam', 'diesel'],
       initial: {
         S1: ['coach', 'coach', 'guard'],

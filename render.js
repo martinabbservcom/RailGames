@@ -294,14 +294,27 @@
     ctx.restore();
   }
 
-  function drawPerson(ctx, x, y, color, bob = 0, wave = false) {
+  function drawPerson(ctx, x, y, color, bob = 0, wave = false, annoyed = false) {
     ctx.save();
     ctx.translate(x, y - Math.abs(bob));
     box(ctx, -3.5, -10, 7, 10, 3, color, 1.4);
-    circle(ctx, 0, -14, 4.2, '#ffd9b3', 1.4);
+    circle(ctx, 0, -14, 4.2, annoyed ? '#ff9f8c' : '#ffd9b3', 1.4);
     ctx.fillStyle = INK;
     ctx.fillRect(-2.5, -14.8, 1.2, 1.2);
     ctx.fillRect(1.3, -14.8, 1.2, 1.2);
+    if (annoyed) {
+      // Cross eyebrows and a flat mouth: this train is late!
+      ctx.beginPath();
+      ctx.moveTo(-3.6, -17.4);
+      ctx.lineTo(-1.2, -16.2);
+      ctx.moveTo(3.6, -17.4);
+      ctx.lineTo(1.2, -16.2);
+      ctx.moveTo(-1.6, -11.6);
+      ctx.lineTo(1.6, -11.6);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+    }
     if (wave) {
       ctx.beginPath();
       ctx.moveTo(3, -8);
@@ -453,32 +466,7 @@
     const { W, H } = game;
     const rand = mulberry(7);
 
-    // Sky.
-    const sky = ctx.createLinearGradient(0, 0, 0, 150);
-    sky.addColorStop(0, '#7fcdff');
-    sky.addColorStop(1, '#dff4ff');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, 160);
-
-    // Sun with a face.
-    ctx.save();
-    ctx.translate(150, 62);
-    ctx.strokeStyle = '#ffe27a';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    for (let i = 0; i < 12; i++) {
-      const a = (i * Math.PI) / 6;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * 38, Math.sin(a) * 38);
-      ctx.lineTo(Math.cos(a) * 50, Math.sin(a) * 50);
-      ctx.stroke();
-    }
-    circle(ctx, 0, 0, 30, '#ffd23f', 2.5);
-    eyes(ctx, 0, -4, 9, 3.6, 0);
-    smile(ctx, 0, 6, 9);
-    circle(ctx, -16, 8, 4, 'rgba(255,120,120,.5)');
-    circle(ctx, 16, 8, 4, 'rgba(255,120,120,.5)');
-    ctx.restore();
+    // (The sky, sun and moon are drawn fresh every frame, behind this cached scenery.)
 
     // Hills.
     ctx.fillStyle = '#a9e07b';
@@ -670,10 +658,23 @@
     }
 
     // Track beds and buffers.
+    const shown = game.tracks.filter(track => !(track.kind === 'turntable' && track.locked));
     for (const layer of ['ballast', 'ballast2', 'sleepers', 'rails']) {
-      for (const track of game.tracks) drawTrackBed(ctx, track, game.pointAt, layer);
+      for (const track of shown) drawTrackBed(ctx, track, game.pointAt, layer);
     }
-    for (const track of game.tracks) {
+    const turn = game.byId.get('TURN');
+    if (turn && !turn.locked) {
+      // The turntable pit: a round hole in the ground that the rails run across (the bridge itself turns, see drawTurntableBridge).
+      const c = game.pointAt(turn, turn.uEnd - game.SP / 2);
+      circle(ctx, c.x, c.y, 38, '#4f586d', 2.5);
+      circle(ctx, c.x, c.y, 32, '#69738b', 1.5);
+      ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 26, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    for (const track of shown) {
       if (!track.through) bufferStop(ctx, track.side === 'left' ? track.xEnd - 10 : track.xEnd + 2, track.y);
     }
 
@@ -692,6 +693,14 @@
       ctx.fillStyle = INK;
       ctx.fillRect(x - 13, 196, 3, 6);
       ctx.fillRect(x + 10, 196, 3, 6);
+    }
+    // Luggage trolleys.
+    for (const x of [880, 1030]) {
+      box(ctx, x - 13, 195, 26, 8, 2, '#8d99ae', 1.6);
+      box(ctx, x - 11, 186, 11, 9, 2, '#d9694f', 1.6);
+      box(ctx, x + 1, 189, 10, 6, 2, '#5a4b8f', 1.6);
+      circle(ctx, x - 8, 205, 2.3, INK);
+      circle(ctx, x + 8, 205, 2.3, INK);
     }
     for (const [n, y] of [[1, 183], [2, 203]]) {
       circle(ctx, 698, y, 8, '#4d96ff', 1.8);
@@ -729,7 +738,7 @@
     box(ctx, 30, 622, 14, 16, 2, '#d9f1ff', 1.5);
     box(ctx, 56, 622, 14, 16, 2, '#d9f1ff', 1.5);
     box(ctx, 48, 655, 14, 19, 2, '#8a5a36', 1.5);
-    label(ctx, 'SIGNAL BOX', 50, 606, 9, INK, 'center', 700);
+    label(ctx, 'SIGNAL BOX', 50, 688, 9, INK, 'center', 700);
     ctx.restore();
 
     // Fence along the bottom edge.
@@ -744,6 +753,95 @@
     ctx.fillRect(0, 709, W, 3);
   }
 
+  // ---- Sky, light and weather helpers ---------------------------------------------------
+  // [hour, top-of-sky colour, horizon colour]
+  const SKY_KEYS = [
+    [0, '#0b1433', '#1d2c5a'], [5, '#1b2a5c', '#3a4a82'], [6, '#4a5d9c', '#f2a78a'], [7.2, '#6fb2f0', '#fbd7a6'],
+    [8.8, '#7fcdff', '#dff4ff'], [16, '#7fcdff', '#dff4ff'], [18, '#6aa3e0', '#ffcf9a'], [19.3, '#5a5c9e', '#f08a6a'],
+    [20.6, '#232f66', '#6a5a98'], [22, '#0f1a44', '#222f62'], [24, '#0b1433', '#1d2c5a']
+  ];
+  const DARK_KEYS = [[0, 0.62], [5, 0.62], [7, 0], [17.5, 0], [19.5, 0.35], [21.5, 0.62], [24, 0.62]];
+  const WEATHER_SKY = { cloudy: [[155, 179, 204], [213, 221, 230]], rain: [[104, 117, 138], [168, 178, 191]], fog: [[200, 208, 216], [228, 232, 236]] };
+  const toRGB = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const lerpRGB = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const css = c => `rgb(${c.map(Math.round).join(',')})`;
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const easeIO = p => 0.5 - 0.5 * Math.cos(Math.PI * clamp01(p));
+  const pingPong = v => 1 - Math.abs((((v % 2) + 2) % 2) - 1);
+
+  function skyAt(h) {
+    let i = 1;
+    while (i < SKY_KEYS.length - 1 && SKY_KEYS[i][0] < h) i++;
+    const a = SKY_KEYS[i - 1];
+    const b = SKY_KEYS[i];
+    const t = (h - a[0]) / (b[0] - a[0]);
+    return [lerpRGB(toRGB(a[1]), toRGB(b[1]), t), lerpRGB(toRGB(a[2]), toRGB(b[2]), t)];
+  }
+
+  function darknessAt(h) {
+    let i = 1;
+    while (i < DARK_KEYS.length - 1 && DARK_KEYS[i][0] < h) i++;
+    const a = DARK_KEYS[i - 1];
+    const b = DARK_KEYS[i];
+    return a[1] + (b[1] - a[1]) * ((h - a[0]) / (b[0] - a[0]));
+  }
+
+  // How much of a warm sunset (or sunrise) glow there is.
+  const duskAt = h => Math.max(0, 1 - Math.abs(h - 18.8) / 1.7) + Math.max(0, 1 - Math.abs(h - 6.3) / 1.1) * 0.6;
+
+  // The recovery crane: a yellow breakdown crane with a friendly face, a boom and a swinging hook.
+  function drawCrane(ctx, swing, lift) {
+    wheel(ctx, -17, 11, 6);
+    wheel(ctx, 17, 11, 6);
+    box(ctx, -27, -4, 54, 15, 3, '#f4b823');
+    ctx.save();
+    path(ctx, -27, 4, 54, 6, 2);
+    ctx.clip();
+    ctx.fillStyle = INK;
+    for (let x = -32; x < 30; x += 10) {
+      ctx.beginPath();
+      ctx.moveTo(x, 10);
+      ctx.lineTo(x + 5, 10);
+      ctx.lineTo(x + 10, 4);
+      ctx.lineTo(x + 5, 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    box(ctx, -25, -26, 20, 23, 3, '#ffcf3d');
+    box(ctx, -22, -23, 14, 9, 2, '#d9f1ff', 1.5);
+    eyes(ctx, -15, -9, 3.5, 2.6, 1);
+    smile(ctx, -14, -6.5, 3.4);
+    circle(ctx, -15, -29, 3, Math.floor(Date.now() / 300) % 2 ? '#ffb938' : '#c77a1a', 1.5);
+    const angle = -0.78 + swing * 0.1;
+    const px = -2;
+    const py = -16;
+    const tx = px + Math.cos(angle) * 64;
+    const ty = py + Math.sin(angle) * 64;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(tx, ty);
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#e5484d';
+    ctx.stroke();
+    circle(ctx, px, py, 4.5, '#39435c', 1.8);
+    const drop = 12 + 20 * (0.5 - 0.5 * Math.cos(lift * Math.PI * 4));
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx, ty + drop);
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(tx, ty + drop + 3, 3.4, 0.2, Math.PI * 1.1);
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
+
   // ---- Renderer -------------------------------------------------------------------------
   Y.createRenderer = function createRenderer(canvas, game) {
     const ctx = canvas.getContext('2d');
@@ -755,6 +853,14 @@
     const particles = [];
     let lastPuff = 0;
     const clouds = [[120, 40, 1], [420, 70, 0.8], [760, 30, 1.2]];
+    // More clouds roll in when the weather turns.
+    const extraClouds = [[300, 50, 1.1], [560, 26, 0.9], [880, 72, 1], [40, 78, 0.8], [700, 62, 1.3]];
+    const starField = (() => {
+      const r = mulberry(3);
+      return Array.from({ length: 46 }, () => ({ x: r() * 1100, y: 6 + r() * 92, s: 0.8 + r() * 1.4, p: r() * 6 }));
+    })();
+    const drops = Array.from({ length: 150 }, () => ({ x: Math.random() * 1200, y: Math.random() * 720, v: 520 + Math.random() * 260 }));
+    const fogBlobs = [[100, 260, 260, 70], [400, 420, 320, 80], [760, 200, 300, 70], [900, 520, 340, 90], [250, 600, 300, 80], [620, 330, 280, 70]];
     const iconCache = new Map();
 
     function resize(cssWidth) {
@@ -784,13 +890,16 @@
       drawScenery(c, G, t, st);
     }
 
-    function cloud(x, y, s) {
-      ctx.fillStyle = '#fff';
+    function cloud(x, y, s, color = '#fff', alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
       for (const [dx, dy, r] of [[0, 0, 18], [20, -8, 22], [44, 0, 18], [22, 6, 20]]) {
         ctx.beginPath();
         ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.restore();
     }
 
     // A passenger plane now and then crosses the sky, trailing a thin white vapour trail.
@@ -940,11 +1049,16 @@
         ctx.translate(0, 4 + (k % 2) * 2);
         ctx.rotate((k % 2 ? 1 : -1) * (0.1 + (k % 3) * 0.04));
       }
-      if (Math.cos(pose.a) < 0) {
-        // Heading left (the engine shed road): turn the picture round so it stays the right way up.
-        ctx.rotate(pose.a + Math.PI);
-        ctx.scale(-1, 1);
-      } else ctx.rotate(pose.a);
+      // On a road that runs left the picture is turned round so it stays the right way up; an engine facing
+      // left (nose-first into the shed, or heading in from the main line) is then mirrored.
+      ctx.rotate(Math.cos(pose.a) < 0 ? pose.a + Math.PI : pose.a);
+      let sx = pose.v.facing === -1 ? -1 : 1;
+      if (pose.track === 'TURN') {
+        // On the turntable the engine swings round: its picture squashes flat and comes out the other way.
+        const turning = G.unloadings.find(x => x.turn && x.track === 'TURN');
+        if (turning) sx *= Math.cos(easeIO(turning.progress) * Math.PI);
+      }
+      ctx.scale(Math.abs(sx) < 0.05 ? 0.05 * (sx < 0 ? -1 : 1) : sx, 1);
       ctx.translate(0, -13);
       if (extra && extra.glow) {
         path(ctx, -30, -33, 60, 56, 10);
@@ -971,6 +1085,9 @@
         const note = arrived || G.isUnloading(track.id) ? '' : G.formationHint(dep, track);
         if (note) lines.push({ text: note, size: 10, color: note === 'Perfect!' ? '#1f9d5b' : '#b5651d' });
       }
+      if (G.freeplay && G.overPull(track)) {
+        lines.push({ text: 'Too long for one engine: add a second engine', size: 10, color: '#b5651d' });
+      }
       if (G.freeplay && G.passengersOnGoods(track)) {
         lines.push({ text: 'Passenger trains leave from a platform', size: 10, color: '#b5651d' });
       }
@@ -982,6 +1099,8 @@
       }
       if (G.unloadingKind(track.id) === 'derail') {
         lines.push({ text: G.recovery(track.id).called ? 'Recovery crew at work…' : 'Derailed! Click the train for recovery', size: 10, color: '#d92f2f' });
+      } else if (G.unloadingKind(track.id) === 'turn') {
+        lines.push({ text: 'Turning the engine round…', size: 10, color: '#1b6fd1' });
       } else if (G.isUnloading(track.id)) {
         lines.push({ text: G.unloadingKind(track.id) === 'goods' ? 'Unloading goods, please wait…' : 'Passengers getting off…', size: 10, color: '#1b6fd1' });
       }
@@ -1173,8 +1292,10 @@
         const doors = poses.filter(p => p.track === dep.track && Y.TYPES[p.v.type].kind === 'coach');
         const yWait = dep.track === 'P1' ? 196 : 190;
         const yDoor = dep.track === 'P1' ? 176 : 210;
+        // Passengers get cross when their train is running late.
+        const annoyed = dep.status !== 'ready' && G.minute - (G.level.start + dep.at) > 0.4;
         for (let i = 0; i < count; i++) {
-          const wx = 710 + rand() * 340;
+          const wx = 710 + rand() * 340 + (annoyed ? Math.sin(time / 70 + i * 2) * 0.9 : 0);
           const wy = yWait + rand() * 12 - 6;
           const color = PEOPLE[Math.floor(rand() * PEOPLE.length)];
           const bob = Math.sin(time / 300 + i) * 1.2;
@@ -1186,7 +1307,7 @@
             const t = p * p * (3 - 2 * p);
             drawPerson(ctx, wx + (door.x - wx) * t, wy + (yDoor - wy) * t, color, Math.sin(time / 80 + i) * 2);
           } else {
-            drawPerson(ctx, wx, wy, color, bob, dep.status === 'ready' && i % 3 === 0);
+            drawPerson(ctx, wx, wy, color, bob, dep.status === 'ready' && i % 3 === 0, annoyed);
           }
         }
       }
@@ -1195,7 +1316,7 @@
     // Passengers stepping off an arriving train and walking away down the platform.
     function alighting(time, poses) {
       for (const u of G.unloadings) {
-        if (u.derail || (u.track !== 'P1' && u.track !== 'P2')) continue;
+        if (u.derail || u.turn || (u.track !== 'P1' && u.track !== 'P2')) continue;
         const doors = poses.filter(p => p.track === u.track && Y.TYPES[p.v.type].kind === 'coach');
         if (!doors.length) continue;
         const rand = mulberry(u.arrival.id * 53 + 7);
@@ -1342,26 +1463,279 @@
       }
     }
 
+    // ---- Sky, weather and night ------------------------------------------------------
+    function drawSky(env, time) {
+      let [top, bottom] = skyAt(env.h);
+      if (env.kind !== 'clear' && env.amount > 0.01) {
+        const k = env.amount * (env.kind === 'cloudy' ? 0.65 : 1);
+        const [wt, wb] = WEATHER_SKY[env.kind];
+        const dim = 1 - 0.7 * env.dark;
+        top = lerpRGB(top, wt.map(v => v * dim), k);
+        bottom = lerpRGB(bottom, wb.map(v => v * dim), k);
+      }
+      const g = ctx.createLinearGradient(0, 0, 0, 170);
+      g.addColorStop(0, css(top));
+      g.addColorStop(1, css(bottom));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, G.W, 170);
+      const hide = env.kind === 'cloudy' ? 0.4 : env.kind === 'clear' ? 0 : 0.85;
+      const seen = 1 - env.amount * hide;
+      // The sun rolls across the sky from morning to evening and sinks behind the hills.
+      const t = (env.h - 5.5) / 15;
+      if (t > -0.05 && t < 1.05) {
+        const x = 70 + clamp01(t) * (G.W - 140);
+        const y = 132 - Math.sin(Math.PI * clamp01(t)) * 104;
+        const low = 1 - Math.sin(Math.PI * clamp01(t));
+        ctx.save();
+        ctx.globalAlpha = seen;
+        ctx.translate(x, y);
+        ctx.rotate(time / 9000);
+        ctx.strokeStyle = low > 0.55 ? '#ffb45a' : '#ffe27a';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 12; i++) {
+          const a = (i * Math.PI) / 6;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * 38, Math.sin(a) * 38);
+          ctx.lineTo(Math.cos(a) * 50, Math.sin(a) * 50);
+          ctx.stroke();
+        }
+        ctx.rotate(-time / 9000);
+        circle(ctx, 0, 0, 30, low > 0.55 ? '#ffa23c' : '#ffd23f', 2.5);
+        eyes(ctx, 0, -4, 9, 3.6, 0);
+        smile(ctx, 0, 6, 9);
+        circle(ctx, -16, 8, 4, 'rgba(255,120,120,.5)');
+        circle(ctx, 16, 8, 4, 'rgba(255,120,120,.5)');
+        ctx.restore();
+      }
+      // The moon takes over for the night.
+      const u = ((env.h - 19 + 24) % 24) / 12;
+      if (u >= 0 && u <= 1) {
+        const x = 70 + u * (G.W - 140);
+        const y = 132 - Math.sin(Math.PI * u) * 100;
+        ctx.save();
+        ctx.globalAlpha = seen;
+        ctx.translate(x, y);
+        circle(ctx, 0, 0, 24, '#f4f1de', 2.5);
+        circle(ctx, -8, -7, 4, '#dcd8c0');
+        circle(ctx, 9, 6, 3.4, '#dcd8c0');
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(-7, -2, 3.4, 0.2, Math.PI - 0.2);
+        ctx.moveTo(10.4, -2);
+        ctx.arc(7, -2, 3.4, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+        smile(ctx, 0, 6, 5);
+        ctx.restore();
+      }
+    }
+
+    function drawClouds(env, time) {
+      const cloudy = env.kind === 'clear' ? 0 : env.amount;
+      const grey = lerpRGB([255, 255, 255], [186, 194, 206], env.kind === 'fog' ? cloudy * 0.3 : cloudy);
+      const col = css(grey.map(v => v * (1 - 0.6 * env.dark)));
+      for (const [i, c] of clouds.entries()) {
+        const x = ((c[0] + time / (60 + i * 25)) % (G.W + 200)) - 100;
+        cloud(x, c[1], c[2], col);
+      }
+      if (cloudy > 0.02 && env.kind !== 'fog') {
+        for (const [i, c] of extraClouds.entries()) {
+          const x = ((c[0] + time / (45 + i * 18)) % (G.W + 260)) - 130;
+          cloud(x, c[1], c[2], col, cloudy * 0.92);
+        }
+      }
+    }
+
+    function drawWeather(env, time, dt) {
+      if (env.kind === 'rain') {
+        ctx.fillStyle = `rgba(70,85,112,${0.2 * env.amount})`;
+        ctx.fillRect(0, 0, G.W, G.H);
+        const n = Math.floor(drops.length * env.amount);
+        ctx.strokeStyle = 'rgba(205,225,255,.55)';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const d = drops[i];
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - 3.5, d.y + 13);
+        }
+        ctx.stroke();
+      }
+      for (const d of drops) {
+        d.y += d.v * dt;
+        d.x -= 130 * dt;
+        if (d.y > G.H + 14 || d.x < -10) {
+          d.y = -14;
+          d.x = Math.random() * 1200;
+        }
+      }
+      if (env.kind === 'fog' && env.amount > 0.02) {
+        ctx.fillStyle = `rgba(225,232,238,${0.26 * env.amount})`;
+        ctx.fillRect(0, 0, G.W, G.H);
+        for (const [i, b] of fogBlobs.entries()) {
+          const x = ((b[0] + time / (70 + i * 14)) % (G.W + 600)) - 300;
+          const g = ctx.createRadialGradient(x, b[1], 0, x, b[1], b[2]);
+          g.addColorStop(0, `rgba(235,240,245,${0.5 * env.amount})`);
+          g.addColorStop(1, 'rgba(235,240,245,0)');
+          ctx.save();
+          ctx.translate(0, b[1]);
+          ctx.scale(1, b[3] / b[2]);
+          ctx.translate(0, -b[1]);
+          ctx.fillStyle = g;
+          ctx.fillRect(x - b[2], b[1] - b[2], b[2] * 2, b[2] * 2);
+          ctx.restore();
+        }
+      }
+    }
+
+    function glowAt(x, y, r, rgba) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba);
+      g.addColorStop(1, 'rgba(255,220,140,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+
+    // Sunset glow, the dark of night, and then the lights that come on: lamps, windows and headlights.
+    function drawNight(env, poses) {
+      const glow = duskAt(env.h) * (1 - env.amount * 0.6);
+      if (glow > 0.02) {
+        ctx.fillStyle = `rgba(255,140,70,${0.16 * glow})`;
+        ctx.fillRect(0, 0, G.W, G.H);
+      }
+      if (env.dark > 0.01) {
+        ctx.fillStyle = `rgba(8,14,50,${Math.min(0.74, env.dark * 1.15)})`;
+        ctx.fillRect(0, 0, G.W, G.H);
+      }
+      // Stars twinkle once it is properly dark.
+      const starAlpha = clamp01((env.dark - 0.2) / 0.3) * (1 - env.amount * 0.85);
+      if (starAlpha > 0.02) {
+        ctx.fillStyle = '#fff';
+        for (const st of starField) {
+          if (st.y > 74) continue;
+          ctx.globalAlpha = starAlpha * (0.55 + 0.45 * Math.sin(performance.now() / 500 + st.p));
+          ctx.beginPath();
+          ctx.arc(st.x, st.y, st.s + 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      const light = clamp01((env.dark - 0.08) / 0.3);
+      if (light <= 0.01) return;
+      ctx.fillStyle = `rgba(255,213,105,${0.92 * light})`;
+      for (const [x, y, w, h, r] of [[712, 90, 26, 22, 10], [868, 90, 26, 22, 10], [898, 62, 34, 38, 15], [160, 526, 36, 24, 3], [330, 622, 14, 16, 2], [356, 622, 14, 16, 2]]) {
+        path(ctx, x, y, w, h, r);
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const x of [724, 832, 940, 1048]) glowAt(x, 172, 86, `rgba(255,225,140,${0.5 * light})`);
+      for (const [x, y] of [[725, 101], [881, 101], [915, 82], [178, 538], [337, 630], [363, 630]]) glowAt(x, y, 38, `rgba(255,215,120,${0.35 * light})`);
+      for (const pose of poses) {
+        if (!G.isLoco(pose.v.type)) continue;
+        const f = pose.v.facing === -1 ? -1 : 1;
+        glowAt(pose.x + f * 28, pose.y - 22, 54, `rgba(255,240,170,${0.5 * light})`);
+      }
+      ctx.restore();
+    }
+
+    // The turntable's bridge (the rails across the pit); it swings round when an engine is being turned.
+    function drawTurntableBridge() {
+      const turn = G.byId.get('TURN');
+      if (!turn || turn.locked) return;
+      const c = G.pointAt(turn, turn.uEnd - G.SP / 2);
+      const spin = G.unloadings.find(x => x.turn);
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(spin ? easeIO(spin.progress) * Math.PI : 0);
+      box(ctx, -37, -9, 74, 18, 4, '#8b94a9', 2);
+      for (const side of [-5, 5]) {
+        ctx.beginPath();
+        ctx.moveTo(-35, side);
+        ctx.lineTo(35, side);
+        ctx.strokeStyle = '#59627a';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.strokeStyle = '#dfe6f2';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+      circle(ctx, 0, 0, 5, '#39435c', 1.8);
+      ctx.restore();
+    }
+
+    // The breakdown crane drives in on the derailed train's road, lifts the vehicles back on and drives away.
+    function drawCranes(time) {
+      for (const u of G.unloadings) {
+        if (!u.derail || !u.called) continue;
+        const track = G.byId.get(u.track);
+        const p = u.progress;
+        const work = G.slotU(track, 0, track.cars.length) - G.SP * 1.2;
+        const away = work - 460;
+        let pos = work;
+        if (p < 0.18) pos = away + (work - away) * easeIO(p / 0.18);
+        else if (p > 0.82) pos = work + (away - work) * easeIO((p - 0.82) / 0.18);
+        const working = p >= 0.18 && p <= 0.82;
+        const q = G.pointAt(track, pos);
+        ctx.save();
+        ctx.translate(q.x, q.y);
+        ctx.rotate(q.a);
+        ctx.translate(0, -13);
+        drawCrane(ctx, working ? Math.sin(time / 260) : 0, working ? (p - 0.18) / 0.64 : 0);
+        ctx.restore();
+        if (working && Math.random() < 0.05) burst(q.x + 70, q.y - 30, 'spark');
+      }
+    }
+
+    // A few passengers stroll up and down the island platform; fewer at night, and under umbrellas in the rain.
+    function ambientPeople(time, env) {
+      if (env.dark > 0.5) return;
+      const rainy = env.kind === 'rain' && env.amount > 0.5;
+      const n = rainy || env.dark > 0.25 ? 3 : 6;
+      for (let i = 0; i < n; i++) {
+        const x = 722 + pingPong(time / (5200 + i * 1100) + i * 0.37) * 318;
+        const y = 186 + (i % 3) * 7;
+        drawPerson(ctx, x, y, PEOPLE[(i * 3 + 1) % PEOPLE.length], Math.sin(time / 110 + i) * 1.3);
+        if (rainy) {
+          ctx.beginPath();
+          ctx.arc(x, y - 21, 8, Math.PI, 0);
+          ctx.closePath();
+          ctx.fillStyle = PEOPLE[(i * 2) % PEOPLE.length];
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = INK;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, y - 21);
+          ctx.lineTo(x, y - 12);
+          ctx.stroke();
+        }
+      }
+    }
+
     function draw(time, dt, ui) {
       particles.length && updateParticles(dt);
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      const env = { h: G.hour(), kind: G.weather.kind, amount: G.weather.amount };
+      env.dark = darknessAt(env.h);
+      drawSky(env, time);
       ctx.drawImage(scenery, 0, 0, G.W, G.H);
       updateTraffic(dt);
       drawTraffic();
       // Trees stand in front of the road, so vehicles drive behind them.
       ctx.drawImage(treeLayer, 0, 0, G.W, G.H);
-
-      for (const [i, c] of clouds.entries()) {
-        const x = ((c[0] + time / (60 + i * 25)) % (G.W + 200)) - 100;
-        cloud(x, c[1], c[2]);
-      }
+      drawClouds(env, time);
       updatePlane(time, dt);
       // Clouds (and planes) drift behind the station building, which has its own layer so it hides only what it covers.
       ctx.drawImage(stationLayer, 0, 0, G.W, G.H);
       windmill(time);
       stationClock();
+      drawTurntableBridge();
 
       const poses = G.vehiclePoses();
+      ambientPeople(time, env);
       crowd(time, poses);
       alighting(time, poses);
       for (const track of G.tracks) {
@@ -1372,46 +1746,44 @@
           ctx.lineWidth = 3;
           ctx.stroke();
         }
-        if (track.kind !== 'shed' && track.kind !== 'pip') tab(track, time);
-        if (track.locked) lockedOverlay(track);
+        if (track.locked && track.kind !== 'turntable') lockedOverlay(track);
       }
-      signals();
 
       const sel = ui.selected;
       const selectedKeys = new Set();
       if (sel) for (let i = 0; i <= sel.idx; i++) selectedKeys.add(`${sel.track}:${i}`);
       const bounce = Math.sin(time / 160) * 3;
+      // Labels, badges and pointers are drawn after the night and weather, so they stay clear.
+      const after = [];
       for (const pose of poses) {
         const key = `${pose.track}:${pose.idx}`;
         const picked = selectedKeys.has(key);
         const hovered = ui.hoverCar && ui.hoverCar.track === pose.track && ui.hoverCar.idx >= pose.idx && !sel && !G.busy();
         const lift = picked ? -3 + bounce * 0.5 : 0;
         drawVehicle({ ...pose, y: pose.y + lift }, picked ? { glow: '#ffe14d' } : hovered ? { glow: 'rgba(255,255,255,.9)' } : null);
-        if (G.needsService(pose.v) && !byShed(pose)) servicingBadge(pose, false);
+        if (G.needsService(pose.v) && !byShed(pose)) after.push(() => servicingBadge(pose, false));
         if ((pose.cut || pose.leaving) && pose.v.type === 'steam' && time - lastPuff > 120) puff(pose.x + 14, pose.y - 46, false);
         if (picked && pose.idx === sel.idx) {
-          ctx.save();
-          ctx.translate(pose.x, pose.y - 60 + bounce);
-          ctx.beginPath();
-          ctx.moveTo(-9, 0);
-          ctx.lineTo(9, 0);
-          ctx.lineTo(0, 12);
-          ctx.closePath();
-          ctx.fillStyle = '#ffe14d';
-          ctx.fill();
-          ctx.lineWidth = 2.2;
-          ctx.strokeStyle = INK;
-          ctx.stroke();
-          ctx.restore();
-          label(ctx, `${sel.idx + 1} ${sel.idx ? 'vehicles' : 'vehicle'}`, pose.x, pose.y - 72 + bounce, 12, INK, 'center', 700);
+          after.push(() => {
+            ctx.save();
+            ctx.translate(pose.x, pose.y - 60 + bounce);
+            ctx.beginPath();
+            ctx.moveTo(-9, 0);
+            ctx.lineTo(9, 0);
+            ctx.lineTo(0, 12);
+            ctx.closePath();
+            ctx.fillStyle = '#ffe14d';
+            ctx.fill();
+            ctx.lineWidth = 2.2;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+            ctx.restore();
+            label(ctx, `${sel.idx + 1} ${sel.idx ? 'vehicles' : 'vehicle'}`, pose.x, pose.y - 72 + bounce, 12, INK, 'center', 700);
+          });
         }
       }
       if (time - lastPuff > 120) lastPuff = time;
-
-      for (const track of G.tracks) if (track.kind === 'shed') tab(track, time);
-      derailBadges(time);
-      // Servicing progress badges go on top of the shed labels so they can always be seen.
-      for (const pose of poses) if (byShed(pose) && G.needsService(pose.v)) servicingBadge(pose, true);
+      drawCranes(time);
 
       // The shunting engine.
       const pilot = G.pilotPose();
@@ -1427,6 +1799,38 @@
       if (pilot.work && pilot.moving) ctx.translate(0, Math.sin(time / 45) * 0.8);
       drawPilot(ctx, time);
       ctx.restore();
+
+      drawWeather(env, time, dt);
+      drawNight(env, poses);
+
+      signals();
+      for (const track of G.tracks) {
+        if (track.kind === 'pip' || (track.kind === 'turntable' && track.locked)) continue;
+        tab(track, time);
+      }
+      for (const fn of after) fn();
+      // Tutorial pointers: pulsing rings round the vehicle or tracks to use next.
+      if (ui.highlight) {
+        const pulse = 0.5 + 0.5 * Math.sin(time / 220);
+        ctx.lineWidth = 3 + pulse * 2;
+        ctx.strokeStyle = `rgba(255,120,40,${0.6 + 0.4 * pulse})`;
+        for (const h of ui.highlight.vehicles || []) {
+          const pose = poses.find(q => q.track === h.track && q.idx === h.idx);
+          if (!pose) continue;
+          path(ctx, pose.x - 33, pose.y - 54, 66, 66, 14);
+          ctx.stroke();
+        }
+        for (const id of ui.highlight.tracks || []) {
+          const t = G.byId.get(id);
+          if (!t || t.locked) continue;
+          path(ctx, t.xMin - 6, t.y - 30, t.xMax - t.xMin + 18, 44, 12);
+          ctx.stroke();
+        }
+      }
+      derailBadges(time);
+      // Servicing progress badges go on top of the shed labels so they can always be seen.
+      for (const pose of poses) if (byShed(pose) && G.needsService(pose.v)) servicingBadge(pose, true);
+
       if (ui.hoverPilot && pilot.parked) {
         const y = pilot.y - 62;
         ctx.font = `700 12px ${FONT}`;

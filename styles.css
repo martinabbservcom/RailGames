@@ -166,3 +166,50 @@ button { font: inherit; cursor: pointer; }
 .card.arr { border-left: 8px solid var(--blue); }
 .card.next { box-shadow: 0 0 0 3px #ffd23f, 0 3px 0 #e6a56a; }
 .board-note .board-dot { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; box-shadow: none; }
+
+/* Sky chip next to the clock */
+.clock { display: flex; align-items: center; gap: 10px; }
+.sky-chip { font-size: 24px; line-height: 1; }
+
+/* Special trains on the timetable */
+.card.dep.special { border-color: #f2c94c; box-shadow: 0 3px 0 #f2c94c; background: #fffbea; }
+.card.dep.special.status-done { background: #f1fff6; border-color: #a9e3bf; box-shadow: 0 3px 0 #a9e3bf; }
+
+/* Results and stats */
+.stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 0 0 16px; text-align: left; }
+.stat-grid:empty { display: none; }
+.stat { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 14px; background: #fff; border: 3px solid #e4d6b4; font-size: 15px; }
+.stat .si { font-size: 20px; }
+.stat .sn { flex: 1; color: #6f6a58; }
+.stat .sv { color: var(--navy); font-size: 17px; white-space: nowrap; }
+@media (max-width: 600px) { .stat-grid { grid-template-columns: 1fr; } }
+
+/* Upgrades */
+.sheet.upgrades-sheet { width: min(760px, 100%); }
+.upgrade-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; text-align: left; }
+@media (max-width: 700px) { .upgrade-list { grid-template-columns: 1fr; } }
+.upgrade { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 4px solid var(--ink); border-radius: 18px; background: #fff; box-shadow: 0 4px 0 #0003; }
+.upgrade.owned { background: #f1fff6; border-color: #3a9b66; }
+.upgrade .ui { font-size: 30px; flex: 0 0 auto; }
+.upgrade .ut { flex: 1; min-width: 0; }
+.upgrade b { display: block; font-size: 17px; }
+.upgrade small { color: #6f6a58; font-size: 13px; line-height: 1.2; display: block; }
+.upgrade .buy { flex: 0 0 auto; padding: 6px 14px; border: 0; border-radius: 16px; background: var(--sun); color: var(--navy); font-weight: 700; font-size: 16px; box-shadow: 0 3px 0 #c99a00; }
+.upgrade .buy:disabled { background: #e8e1c8; color: #9b9378; box-shadow: none; cursor: default; }
+.upgrade.owned .buy:disabled { background: #b8f2cf; color: #1f7a48; }
+#upgrades-button.glow { animation: glow 1.6s ease-in-out infinite; }
+@keyframes glow { 50% { box-shadow: 0 5px 0 #2f6fd0, 0 0 0 6px #ffd23f; } }
+
+/* Tutorial */
+.tutorial { position: absolute; left: 14px; bottom: 14px; z-index: 6; width: min(380px, calc(100% - 28px)); padding: 12px 16px; border-radius: 20px; background: #fff; border: 4px solid var(--orange); box-shadow: 0 6px 0 #0004; animation: pop .35s ease-out; }
+.tutorial.hidden { display: none; }
+.tutorial p { margin: 6px 0 8px; font-size: 15px; line-height: 1.35; }
+.tut-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.tut-head b { font-size: 18px; color: var(--navy); }
+.tut-head span { color: #9b9378; font-size: 13px; font-weight: 600; }
+.tut-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tut-row .link { margin: 0; font-size: 13px; }
+.tut-next { padding: 6px 18px; border: 0; border-radius: 16px; background: var(--green); color: #fff; font-weight: 700; font-size: 16px; box-shadow: 0 3px 0 #26995a; }
+html.is-touch .tutorial { left: 64px; width: min(340px, calc(100% - 78px)); }
+.board.tut-pulse { animation: boardpulse 1.2s ease-in-out infinite; }
+@keyframes boardpulse { 50% { box-shadow: inset 0 0 0 5px var(--orange); } }

@@ -175,9 +175,67 @@
     source.start(a.currentTime + start);
   }
 
+  // ---- Station announcements (a chime, then a spoken message where the browser can do speech) ----
+  let voice = null;
+  function speak(text, urgent) {
+    if (muted || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
+    const synth = window.speechSynthesis;
+    // Don't talk over the last announcement unless this one is urgent.
+    if (synth.speaking && !urgent) return;
+    if (urgent) synth.cancel();
+    if (!voice) {
+      const voices = synth.getVoices();
+      voice = voices.find(v => /en[-_]GB/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || null;
+    }
+    const talk = new SpeechSynthesisUtterance(text);
+    if (voice) talk.voice = voice;
+    talk.lang = voice ? voice.lang : 'en-GB';
+    talk.rate = 0.95;
+    talk.pitch = 1.05;
+    talk.volume = 0.75;
+    synth.speak(talk);
+  }
+
+  // ---- Rain: a soft hiss that follows how hard it is raining ----
+  let rainGain = null;
+  function setRain(amount) {
+    if (muted) amount = 0;
+    if (!rainGain) {
+      if (amount <= 0.02) return;
+      const a = context();
+      if (!a) return;
+      const buffer = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const source = a.createBufferSource();
+      const filter = a.createBiquadFilter();
+      rainGain = a.createGain();
+      filter.type = 'highpass';
+      filter.frequency.value = 1800;
+      rainGain.gain.value = 0;
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(filter).connect(rainGain).connect(a.destination);
+      source.start();
+    }
+    rainGain.gain.setTargetAtTime(amount * 0.035, ctx.currentTime, 0.4);
+  }
+
   Y.sound = {
     setMuted(value) {
       muted = value;
+      if (value && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    },
+    setRain,
+    announce(text, urgent = false) {
+      if (muted) return;
+      // "Ding-dong" before every announcement.
+      tone(784, 0, 0.32, 'sine', 0.13);
+      tone(622, 0.28, 0.5, 'sine', 0.13);
+      setTimeout(() => speak(text, urgent), 700);
+    },
+    bell() {
+      for (let i = 0; i < 4; i++) tone(1568, i * 0.17, 0.2, 'sine', 0.1);
     },
     isMuted: () => muted,
     unlock: () => context(),

@@ -21,7 +21,7 @@
         <span class="brand-badge" aria-hidden="true">P</span>
         <span><strong>Sibsey Station</strong><small id="level-name">Shunting game</small></span>
       </div>
-      <div class="clock" aria-label="Time"><span id="clock">08:00</span></div>
+      <div class="clock" aria-label="Time"><span id="sky-chip" class="sky-chip" title="Weather">☀️</span><span id="clock">08:00</span></div>
       <div class="stars-total" id="stars-total" title="Stars earned this day"><span class="star-icon">★</span> <span id="star-count">0</span> / <span id="star-max">0</span></div>
       <div class="controls">
         <button class="round" id="pause" type="button" aria-label="Pause">Ⅱ</button>
@@ -37,6 +37,7 @@
         <button class="round" id="hint-button" type="button" aria-label="Show a hint" title="Hint (H)">💡</button>
         <button class="round" id="help-button" type="button" aria-label="How to play">?</button>
         <button class="pill" id="call-train" type="button" hidden title="Call the next train in from the main line now">🚆 Call train</button>
+        <button class="pill" id="stats-button" type="button" title="Show how the day is going">📊 Stats</button>
         <button class="pill" id="menu-button" type="button">Menu</button>
       </div>
     </header>
@@ -56,6 +57,14 @@
           <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
           <button type="button" id="zoom-fit" aria-label="Fit to screen">⤢</button>
         </div>
+        <div id="tutorial" class="tutorial hidden" role="dialog" aria-live="polite">
+          <div class="tut-head"><b id="tut-title"></b><span id="tut-step"></span></div>
+          <p id="tut-text"></p>
+          <div class="tut-row">
+            <button class="link" id="tut-skip" type="button">Skip tutorial</button>
+            <button class="tut-next" id="tut-next" type="button">Next</button>
+          </div>
+        </div>
         <div id="hint" class="hint"></div>
         <div id="toasts" class="toasts" aria-live="polite"></div>
       </div>
@@ -74,7 +83,10 @@
         <h1>Sibsey Station</h1>
         <p class="lead">Shunt wagons and coaches into the right trains, then send them off from the station!</p>
         <div id="levels" class="levels"></div>
-        <button class="big secondary" id="howto" type="button">How to play</button>
+        <div class="row">
+          <button class="big secondary" id="howto" type="button">How to play</button>
+          <button class="big secondary" id="upgrades-button" type="button">Upgrades</button>
+        </div>
         <p class="credit">Created by Abbserv</p>
       </div>
     </div>
@@ -85,13 +97,37 @@
         <ol class="steps">
           <li><b>Trains arrive</b> from the main line on the right, at a platform (or the goods road for goods trains), with the engine leading. The road must be <b>empty</b> or the train waits at the red signal, so don't get your own trains ready too early! Passengers get off, then you move the whole train into a siding. There the tired engine uncouples and goes to the shed by itself, and needs a little servicing (🔧) before it can pull another train.</li>
           <li><b>Random events</b> happen in Endless Rush and Free Play. A road can close for track works, and sometimes an arriving train <b>derails</b>. Click the derailed train to call the recovery crew, then wait while they put it back on the rails. A <b>signal failure</b> makes trains leave a road very slowly. If an engine <b>breaks down</b> as its train is about to leave, move the train off it, send the engine to the shed to be serviced again, and fit a new engine.</li>
+          <li><b>Engines have a direction</b> on Rush Hour, Endless Rush and Free Play. They wait in the shed nose-first and arrive facing left, so send a serviced engine <b>alone</b> to the <b>turntable</b> to turn it before it pulls a train. One engine can only pull 5 vehicles in Endless Rush and Free Play: longer trains need a second engine at the front.</li>
+          <li><b>Special trains</b> earn bonus stars if they leave on time: 👑 VIP trains, ✉️ mail trains (cancelled if they are more than 2 minutes late) and 🚂 heritage trains (steam engine only).</li>
+          <li><b>Weather and the time of day</b> change as the day goes on. Rain makes derailments and breakdowns more likely, and fog makes signals fail more often. Late passengers get cross!</li>
           <li><b>Click a vehicle</b> to pick it up. Pip, the little engine, takes it <i>and everything between it and the yard entrance</i> (the left). <b>Engines have their own power</b>, so an engine, or a whole train with its engine in it, drives itself and doesn't need Pip.</li>
           <li><b>Click a track</b> to put them down. Green tracks have room.</li>
           <li><b>Check the Departures board.</b> Build each train with an engine at the front (the right end) and the vehicles in the right order. <b>Any engine will do</b>, steam or diesel.</li>
           <li><b>Park it at its platform</b> before the clock reaches the leaving time. Passengers will hop on, and off it goes!</li>
         </ol>
         <p class="tip">Tips: to turn a train round, move vehicles one at a time to another track. Made a mistake? Press <b>↶</b> (or Z) to undo your last move. Stuck? Press <b>💡</b> (or H) for a hint.</p>
-        <button class="big" id="help-close" type="button">Got it!</button>
+        <div class="row">
+          <button class="big secondary" id="replay-tutorial" type="button">Replay the tutorial</button>
+          <button class="big" id="help-close" type="button">Got it!</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="upgrades" class="overlay hidden">
+      <div class="sheet upgrades-sheet">
+        <h2>Upgrades</h2>
+        <p class="lead" id="upgrade-stars">★ 0 to spend</p>
+        <p class="board-note">Spend the stars you earn on Days 1 to 4. Upgrades last for every day you play from now on.</p>
+        <div id="upgrade-list" class="upgrade-list"></div>
+        <button class="big" id="upgrades-close" type="button">Back to menu</button>
+      </div>
+    </div>
+
+    <div id="stats" class="overlay hidden">
+      <div class="sheet results-sheet">
+        <h2 id="stats-title">Stats</h2>
+        <div id="stats-list" class="stat-grid"></div>
+        <button class="big" id="stats-close" type="button">Back to the game</button>
       </div>
     </div>
 
@@ -100,6 +136,7 @@
         <h2 id="results-title">All done!</h2>
         <div id="results-stars" class="result-stars"></div>
         <p id="results-text" class="lead"></p>
+        <div id="results-stats" class="stat-grid"></div>
         <div class="row">
           <button class="big secondary" id="again" type="button">Play again</button>
           <button class="big" id="next" type="button">Next day</button>

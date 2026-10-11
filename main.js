@@ -10,6 +10,9 @@
   const toasts = $('toasts');
   const board = $('timetable');
   const STORE_KEY = 'pebblebrook-yard-stars';
+  const UPGRADE_KEY = 'sibsey-upgrades';
+  const TUTORIAL_KEY = 'sibsey-tutorial-done';
+  const OVERLAYS = ['menu', 'help', 'results', 'upgrades', 'stats'];
 
   const starsHtml = $('stars-total').innerHTML;
   let levelIndex = 0;
@@ -24,6 +27,7 @@
   let hintShown = null; // { text, track, idx, to, until }
   let last = performance.now();
   let panelTimer = 0;
+  let chuffTimer = 0;
   let finishTimer = null;
 
   // ---- Saved stars ----------------------------------------------------------------
@@ -46,6 +50,49 @@
     }
   }
 
+  function loadUpgrades() {
+    try {
+      const list = JSON.parse(localStorage.getItem(UPGRADE_KEY));
+      return Array.isArray(list) ? list : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveUpgrades(list) {
+    try {
+      localStorage.setItem(UPGRADE_KEY, JSON.stringify(list));
+    } catch (error) {
+      /* storage unavailable: the upgrade lasts until the page is closed */
+    }
+  }
+
+  let ownedUpgrades = loadUpgrades();
+
+  // Stars to spend: the best result on each numbered day, less what has been spent on upgrades.
+  function starsEarned() {
+    const all = loadStars();
+    return Y.LEVELS.reduce((sum, level) => sum + (level.endless || level.freeplay ? 0 : all[level.id] || 0), 0);
+  }
+  const starsSpent = () => Y.UPGRADES.filter(u => ownedUpgrades.includes(u.id)).reduce((sum, u) => sum + u.cost, 0);
+  const starsAvailable = () => Math.max(0, starsEarned() - starsSpent());
+
+  function tutorialDone() {
+    try {
+      return localStorage.getItem(TUTORIAL_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function setTutorialDone() {
+    try {
+      localStorage.setItem(TUTORIAL_KEY, '1');
+    } catch (error) {
+      /* carry on without remembering */
+    }
+  }
+
   // ---- Helpers --------------------------------------------------------------------
   const clock = minute => {
     const m = Math.floor(minute);
@@ -64,12 +111,14 @@
   const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 
   function show(id) {
-    for (const overlay of ['menu', 'help', 'results']) $(overlay).classList.toggle('hidden', overlay !== id);
+    for (const overlay of OVERLAYS) $(overlay).classList.toggle('hidden', overlay !== id);
   }
 
   function hideOverlays() {
-    for (const overlay of ['menu', 'help', 'results']) $(overlay).classList.add('hidden');
+    for (const overlay of OVERLAYS) $(overlay).classList.add('hidden');
   }
+
+  const overlayOpen = () => ['menu', 'help', 'upgrades', 'stats'].some(id => !$(id).classList.contains('hidden'));
 
   // ---- Menu -----------------------------------------------------------------------
   function buildMenu() {
@@ -97,6 +146,9 @@
       });
       list.appendChild(card);
     }
+    const spare = starsAvailable();
+    $('upgrades-button').textContent = spare > 0 ? `Upgrades · ★ ${spare} to spend` : 'Upgrades';
+    $('upgrades-button').classList.toggle('glow', spare > 0 && Y.UPGRADES.some(u => !ownedUpgrades.includes(u.id) && u.cost <= spare));
   }
 
   // ---- Game setup -----------------------------------------------------------------
@@ -104,7 +156,7 @@
     levelIndex = index;
     clearTimeout(finishTimer);
     Y.sound.startMusic();
-    game = Y.createGame(Y.LEVELS[index]);
+    game = Y.createGame(Y.LEVELS[index], { upgrades: ownedUpgrades });
     if (!renderer) renderer = Y.createRenderer(canvas, game);
     else renderer.setGame(game);
     selected = null;
@@ -121,6 +173,8 @@
       $('star-max').textContent = game.maxStars;
     }
     $('call-train').hidden = !game.freeplay;
+    startTutorial(Boolean(game.level.tutorial) && (forceTutorial || !tutorialDone()));
+    forceTutorial = false;
     buildBoard();
     fit();
     hideOverlays();
@@ -128,6 +182,7 @@
     last = performance.now();
   }
 
+  let forceTutorial = false;
   let zoom = 1;
   const scroller = $('scroller');
   if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
@@ -200,7 +255,14 @@
         const dep = row.item;
         card.className = 'card dep';
         card.querySelector('b').textContent = dep.name;
-        card.querySelector('small').textContent = `Departs to ${dep.dest} · ${game.byId.get(dep.track).name} · any engine`;
+        const engines = dep.spec.filter(t => t === 'loco' || (Y.TYPES[t] && Y.TYPES[t].kind === 'loco'));
+        const engineText = dep.spec[0] === 'steam' ? 'steam engine only' : engines.length > 1 ? `${engines.length} engines` : 'any engine';
+        const extra = dep.special ? ` · ${Y.SPECIALS[dep.special].bonus} bonus ★` : '';
+        card.querySelector('small').textContent = `Departs to ${dep.dest} · ${game.byId.get(dep.track).name} · ${engineText}${extra}`;
+        if (dep.special) {
+          card.classList.add('special');
+          card.title = Y.SPECIALS[dep.special].text;
+        }
         // Icons run left to right like the track does: back of the train first, engine last.
         card.appendChild(consist(dep.spec, true));
       } else {
@@ -229,7 +291,7 @@
       if (dep.status === 'ready') chip = 'Ready ✓';
       if (dep.status === 'done') chip = starText(dep.stars);
       if (dep.status === 'cancelled') chip = 'Missed';
-      card.className = `card dep status-${dep.status}${game.activeDeparture(dep.track) === dep ? ' active' : ''}`;
+      card.className = `card dep status-${dep.status}${game.activeDeparture(dep.track) === dep ? ' active' : ''}${dep.special ? ' special' : ''}`;
       // Trains that have left or been missed drop off the list, so the top is always what happens next.
       card.hidden = dep.status === 'done' || dep.status === 'cancelled';
       card.querySelector('.chip').textContent = chip;
@@ -257,6 +319,7 @@
     if (next && next !== lastNext) next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     lastNext = next;
     $('undo').disabled = !game.canUndo();
+    updateSkyChip();
     $('call-train').disabled = !game.canCallTrain();
     $('clock').textContent = clock(game.minute);
     if (game.freeplay) {
@@ -264,6 +327,32 @@
     } else if (game.endless) {
       $('stars-total').innerHTML = `🚂 <span id="star-count">${game.sent}</span> sent &nbsp;✗ ${game.missed} / ${game.maxMisses}`;
     } else $('star-count').textContent = game.stars;
+  }
+
+  function updateSkyChip() {
+    const h = game.hour();
+    const w = game.weather;
+    let icon = '☀️';
+    let label = 'Sunny';
+    if (h < 6.2 || h >= 20.6) {
+      icon = '🌙';
+      label = 'Night';
+    } else if (w.kind === 'rain' && w.amount > 0.4) {
+      icon = '🌧️';
+      label = 'Rain';
+    } else if (w.kind === 'fog' && w.amount > 0.4) {
+      icon = '🌫️';
+      label = 'Fog';
+    } else if (w.kind === 'cloudy' && w.amount > 0.4) {
+      icon = '⛅';
+      label = 'Cloudy';
+    } else if (h >= 18 || h < 7) {
+      icon = '🌅';
+      label = h >= 18 ? 'Sunset' : 'Sunrise';
+    }
+    const chip = $('sky-chip');
+    if (chip.textContent !== icon) chip.textContent = icon;
+    chip.title = label;
   }
 
   // ---- Input ----------------------------------------------------------------------
@@ -285,6 +374,7 @@
 
   function hitTrack(pt) {
     for (const track of game.tracks) {
+      if (track.kind === 'turntable' && track.locked) continue;
       if (pt.y >= track.y - 30 && pt.y <= track.y + 14 && pt.x >= track.xMin - 10 && pt.x <= track.xMax + 30) return track;
     }
     return null;
@@ -367,7 +457,7 @@
           return;
         }
         Y.sound.deny();
-        toast(game.unloadingKind(car.track) === 'goods' ? 'Goods are still being unloaded. Please wait.' : 'Passengers are still getting off. One moment!');
+        toast(unloadMessage(car.track, false));
         return;
       }
       if (selected && selected.track === car.track && selected.idx === car.idx) {
@@ -402,6 +492,13 @@
     selected = null;
   }
 
+  function unloadMessage(trackId, there) {
+    const kind = game.unloadingKind(trackId);
+    if (kind === 'turn') return 'The turntable is turning. One moment!';
+    if (kind === 'goods') return there ? 'Goods are still being unloaded there. Please wait.' : 'Goods are still being unloaded. Please wait.';
+    return there ? 'Passengers are still getting off there.' : 'Passengers are still getting off. One moment!';
+  }
+
   function callRecovery(trackId) {
     if (game.callRecovery(trackId)) Y.sound.toot();
     else toast('The recovery crew is already on its way.');
@@ -415,11 +512,11 @@
       if (t.kind === 'pip') message = "That is Pip's own siding.";
       else if (t.locked) message = 'That track is closed today.';
       else if (game.unloadingKind(trackId) === 'derail') message = 'A derailed train is blocking that road.';
-      else if (game.isUnloading(trackId)) message = game.unloadingKind(trackId) === 'goods' ? 'Goods are still being unloaded there. Please wait.' : 'Passengers are still getting off there.';
+      else if (game.isUnloading(trackId)) message = unloadMessage(trackId, true);
       else if (game.cutNeedsService(selected.track, selected.idx + 1) && t.kind !== 'shed') {
         message = game.byId.get(selected.track).cars.slice(0, selected.idx + 1).every(v => game.isLoco(v.type))
           ? 'A tired engine on its own can only go to an engine shed.'
-          : 'A train with a tired engine can only go into a siding.';
+          : 'A train with a tired engine can only go into a siding, or onto a road that already has a serviced engine at the front.';
       }
       toast(message, 'bad');
       return;
@@ -449,7 +546,7 @@
 
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') selected = null;
-    const typing = !$('menu').classList.contains('hidden') || !$('help').classList.contains('hidden') || !$('results').classList.contains('hidden');
+    const typing = OVERLAYS.some(id => !$(id).classList.contains('hidden'));
     if (game && !typing && (event.key === 'z' || event.key === 'Z')) undo();
     if (game && !typing && (event.key === 'h' || event.key === 'H')) showHint();
     if (event.key === ' ' && game && $('menu').classList.contains('hidden')) {
@@ -485,6 +582,7 @@
       return;
     }
     hintShown = { ...h, until: performance.now() + 9000 };
+    tutorial.usedHint = true;
     Y.sound.pick();
   }
 
@@ -574,9 +672,21 @@
         case 'uncouple':
           Y.sound.drop();
           break;
-        case 'arriving':
+        case 'arriving': {
           Y.sound.whistle();
           toast(`A train from ${event.arrival.from} is arriving!`);
+          const road = game.byId.get(event.arrival.track);
+          Y.sound.announce(road.kind === 'goods'
+            ? `The goods train from ${event.arrival.from} is now arriving on the goods road.`
+            : `The train from ${event.arrival.from} is now approaching ${road.name.toLowerCase()}. Please stand back from the edge of the platform.`);
+          break;
+        }
+        case 'weather':
+          toast({ rain: 'Rain is coming in. Wet rails make derailments more likely.', fog: 'Fog is rolling in. Signals are more likely to fail.', cloudy: 'Clouds are gathering.', clear: 'The weather is clearing up.' }[event.kind]);
+          break;
+        case 'turned':
+          Y.sound.ding();
+          toast('The engine has been turned round and faces the right way.', 'good');
           break;
         case 'servicing':
           toast('The engine is being serviced in the shed.');
@@ -589,7 +699,7 @@
           toast(event.arrival.cars.some(type => Y.isPassenger(type)) ? 'Passengers are getting off…' : 'Unloading goods. Please wait…');
           break;
         case 'arrived':
-          toast(`The ${event.arrival.from} train is unloaded. Move it out of the way. Its engine needs servicing and goes to the shed.`);
+          toast(`The ${event.arrival.from} train is unloaded. Take the whole train into a siding, and the tired engine will go to the shed.`);
           break;
         case 'blocked':
           Y.sound.deny();
@@ -601,6 +711,7 @@
           break;
         case 'derail':
           Y.sound.sad();
+          Y.sound.announce(`Attention please. There has been a derailment on ${game.byId.get(event.track).name.toLowerCase()}. The recovery crane is standing by.`, true);
           toast(`The ${event.arrival.from} train has derailed on ${game.byId.get(event.track).name}! Click it to call the recovery crew.`, 'bad');
           break;
         case 'recovering':
@@ -632,9 +743,11 @@
         case 'ready':
           toast(`${event.dep.name} is ready!`, 'good');
           Y.sound.ding();
+          Y.sound.announce(`The ${spoken(event.dep.name)} to ${event.dep.dest} is ready to depart from ${game.byId.get(event.dep.track).name.toLowerCase()}.`);
           break;
         case 'depart': {
           const track = game.byId.get(event.track);
+          Y.sound.bell();
           Y.sound.whistle();
           Y.sound.cheer(event.dep.stars);
           renderer.burst(track.xEnd - 40, track.y - 30, 'confetti');
@@ -653,6 +766,9 @@
     }
   }
 
+  // Announcements read out loud shouldn't try to say the emoji.
+  const spoken = text => text.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+
   function showResults(event) {
     setSpeed(1);
     if (game.endless) {
@@ -662,6 +778,7 @@
       row.replaceChildren();
       $('results-text').textContent = `You sent off ${event.sent} ${event.sent === 1 ? 'train' : 'trains'} before missing ${event.missed}. Best so far: ${loadStars()[game.level.id] || event.sent}.`;
       $('next').style.display = 'none';
+      renderStats($('results-stats'), game);
       show('results');
       return;
     }
@@ -680,8 +797,11 @@
       }
       row.appendChild(s);
     }
-    $('results-text').textContent = `You earned ${event.stars} of ${event.max} stars on Day ${levelIndex + 1}.`;
+    const spare = starsAvailable();
+    $('results-text').textContent = `You earned ${event.stars} of ${event.max} stars on Day ${levelIndex + 1}.` +
+      (spare > 0 ? ` You have ★ ${spare} to spend on upgrades!` : '');
     $('next').style.display = levelIndex + 1 < Y.LEVELS.length ? '' : 'none';
+    renderStats($('results-stats'), game);
     show('results');
   }
 
@@ -706,8 +826,8 @@
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
     if (game && renderer) {
-      const covered = !$('menu').classList.contains('hidden') || !$('help').classList.contains('hidden');
-      if (!paused && !covered) {
+      const covered = overlayOpen();
+      if (!paused && !covered && !tutorialHolds()) {
         let remaining = dt * speed;
         while (remaining > 0) {
           const step = Math.min(remaining, 0.03);
@@ -721,6 +841,15 @@
         }
       }
       handleEvents();
+      // Engines chuff while they move, and the rain patters.
+      if (!paused && !covered && game.moving()) {
+        chuffTimer -= dt * Math.min(speed, 4);
+        if (chuffTimer <= 0) {
+          Y.sound.chuff();
+          chuffTimer = 0.27;
+        }
+      }
+      Y.sound.setRain(!covered && !paused && game.weather.kind === 'rain' ? game.weather.amount : 0);
       if (selected) {
         const from = game.byId.get(selected.track);
         if (!from || from.cars.length <= selected.idx) selected = null;
@@ -730,6 +859,7 @@
         panelTimer = 0;
         updateBoard();
         updateHint();
+        updateTutorial();
       }
       if (hintShown && (hintShown.until < now || selected)) hintShown = null;
       const hinting = hintShown && hintShown.track !== undefined;
@@ -738,11 +868,194 @@
         targets: hinting ? [hintShown.to] : targets(),
         hoverTrack,
         hoverCar: hinting ? { track: hintShown.track, idx: hintShown.idx } : hoverCar,
-        hoverPilot
+        hoverPilot,
+        highlight: tutorialHighlight()
       });
     }
     requestAnimationFrame(frame);
   }
+
+  // ---- Stats ------------------------------------------------------------------------
+  function renderStats(container, g) {
+    const st = g.stats;
+    const avgLate = st.sent ? st.lateMinutes / st.sent : 0;
+    const rows = [
+      ['🚆', 'Trains sent off', st.sent],
+      ['⏱️', 'Left on time', st.sent ? `${st.onTime} of ${st.sent}` : '–'],
+      ['🕒', 'Average lateness', st.sent ? `${avgLate.toFixed(1)} min` : '–'],
+      ['❌', 'Trains missed', st.missed],
+      ['📥', 'Trains arrived', st.arrivals + st.recovered],
+      ['👑', 'Special trains', st.specials ? `${st.specials} (${st.bonusStars} bonus ★)` : 0]
+    ];
+    if (g.level.events) {
+      rows.push(['🛤️', 'Track works', st.trackWorks], ['🚦', 'Signal failures', st.signalFailures],
+        ['🔧', 'Engine breakdowns', st.breakdowns], ['🚧', 'Derailments recovered', `${st.recovered} of ${st.derailments}`]);
+    }
+    container.replaceChildren(...rows.map(([icon, name, value]) => {
+      const row = document.createElement('div');
+      row.className = 'stat';
+      row.innerHTML = '<span class="si"></span><span class="sn"></span><b class="sv"></b>';
+      row.querySelector('.si').textContent = icon;
+      row.querySelector('.sn').textContent = name;
+      row.querySelector('.sv').textContent = value;
+      return row;
+    }));
+  }
+
+  let statsPausedGame = false;
+  $('stats-button').addEventListener('click', () => {
+    if (!game) return;
+    renderStats($('stats-list'), game);
+    $('stats-title').textContent = `Day ${levelIndex + 1} so far`;
+    statsPausedGame = !paused;
+    show('stats');
+  });
+  $('stats-close').addEventListener('click', () => {
+    hideOverlays();
+    statsPausedGame = false;
+  });
+
+  // ---- Upgrades ---------------------------------------------------------------------
+  function buildUpgrades() {
+    const spare = starsAvailable();
+    $('upgrade-stars').textContent = `★ ${spare} to spend`;
+    const list = $('upgrade-list');
+    list.replaceChildren();
+    for (const upgrade of Y.UPGRADES) {
+      const owned = ownedUpgrades.includes(upgrade.id);
+      const card = document.createElement('div');
+      card.className = `upgrade${owned ? ' owned' : ''}`;
+      card.innerHTML = '<span class="ui"></span><span class="ut"><b></b><small></small></span><button type="button" class="buy"></button>';
+      card.querySelector('.ui').textContent = upgrade.icon;
+      card.querySelector('b').textContent = upgrade.name;
+      card.querySelector('small').textContent = upgrade.text;
+      const button = card.querySelector('.buy');
+      if (owned) {
+        button.textContent = '✓ Owned';
+        button.disabled = true;
+      } else {
+        button.textContent = `★ ${upgrade.cost}`;
+        button.disabled = upgrade.cost > spare;
+        button.addEventListener('click', () => {
+          if (upgrade.cost > starsAvailable()) return;
+          ownedUpgrades = [...ownedUpgrades, upgrade.id];
+          saveUpgrades(ownedUpgrades);
+          Y.sound.cheer(2);
+          buildUpgrades();
+        });
+      }
+      list.appendChild(card);
+    }
+  }
+  $('upgrades-button').addEventListener('click', () => {
+    Y.sound.unlock();
+    buildUpgrades();
+    show('upgrades');
+  });
+  $('upgrades-close').addEventListener('click', () => {
+    buildMenu();
+    show('menu');
+  });
+
+  // ---- Day-1 tutorial ----------------------------------------------------------------
+  // A few friendly steps for the first day. A step moves on when its condition is met, or when its button is pressed.
+  const tutorial = { active: false, step: 0, usedHint: false };
+  const TUTORIAL_STEPS = [
+    {
+      title: 'Welcome to Sibsey Station!',
+      text: "I'm Pip, the little shunting engine. Your job is to build the trains on the timetable and send them off on time. A train from Hillbury is coming in on Platform 1 from the main line on the right.",
+      button: 'Show me!',
+      hold: true
+    },
+    {
+      title: 'Here it comes!',
+      text: 'Trains always come in with the engine at the front, and the platform has to be empty or they wait at the red signal. Wait while the passengers get off.',
+      done: g => g.arrivals.some(a => a.status === 'arrived')
+    },
+    {
+      title: 'Move the whole train',
+      text: "The passengers are off, and the engine is tired. Click the last vehicle (the guard's van on the right) to pick up the whole train, then click a siding.",
+      highlight: (g, sel) => (sel ? { tracks: ['S1', 'S2'] } : { vehicles: [{ track: 'P1', idx: g.byId.get('P1').cars.length - 1 }] }),
+      done: g => ['S1', 'S2'].some(id => g.byId.get(id).cars.length > 0 || (g.job && g.job.to === id))
+    },
+    {
+      title: 'The engine goes to the shed',
+      text: 'In the siding the tired engine uncouples and drives itself to the engine shed to be serviced (🔧). It will be ready to pull a train again in a few minutes.',
+      button: 'Next'
+    },
+    {
+      title: 'Read the timetable',
+      text: "The Timetable on the right shows each train and the vehicles it needs: an engine at the front (the right-hand end), coaches in the right order, and the guard's van at the back.",
+      button: 'Next',
+      board: true,
+      hold: true
+    },
+    {
+      title: 'Build your train',
+      text: 'Pip takes the vehicle you click and everything between it and the yard entrance on the left. Click vehicles and tracks to build the Seaside Express on Platform 1. Stuck? Press 💡 for a hint!',
+      button: 'Next',
+      hold: true
+    },
+    {
+      title: 'Leave on time!',
+      text: 'Once the train is built right, passengers board by themselves and it leaves at its time. Leaving on time earns ★★★. Good luck, driver!',
+      button: 'Start playing',
+      hold: true
+    }
+  ];
+
+  const tutorialStep = () => (tutorial.active ? TUTORIAL_STEPS[tutorial.step] : null);
+  const tutorialHolds = () => Boolean(tutorialStep() && tutorialStep().hold);
+
+  function showTutorialStep() {
+    const step = tutorialStep();
+    const box = $('tutorial');
+    box.classList.toggle('hidden', !step);
+    document.querySelector('.board').classList.toggle('tut-pulse', Boolean(step && step.board));
+    if (!step) return;
+    $('tut-title').textContent = step.title;
+    $('tut-text').textContent = step.text;
+    $('tut-step').textContent = `${tutorial.step + 1} / ${TUTORIAL_STEPS.length}`;
+    $('tut-next').hidden = !step.button;
+    $('tut-next').textContent = step.button || '';
+  }
+
+  function advanceTutorial() {
+    if (!tutorial.active) return;
+    tutorial.step++;
+    if (tutorial.step >= TUTORIAL_STEPS.length) endTutorial();
+    else showTutorialStep();
+  }
+
+  function endTutorial() {
+    tutorial.active = false;
+    setTutorialDone();
+    showTutorialStep();
+  }
+
+  function startTutorial(on) {
+    tutorial.active = on;
+    tutorial.step = 0;
+    tutorial.usedHint = false;
+    showTutorialStep();
+  }
+
+  function updateTutorial() {
+    const step = tutorialStep();
+    if (step && step.done && game && step.done(game)) advanceTutorial();
+  }
+
+  function tutorialHighlight() {
+    const step = tutorialStep();
+    return step && step.highlight && !game.finished ? step.highlight(game, selected) : null;
+  }
+
+  $('tut-next').addEventListener('click', advanceTutorial);
+  $('tut-skip').addEventListener('click', endTutorial);
+  $('replay-tutorial').addEventListener('click', () => {
+    forceTutorial = true;
+    startLevel(0);
+  });
 
   Y.debug = () => ({ game, paused, speed });
 
