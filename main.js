@@ -677,8 +677,8 @@
           toast(`A train from ${event.arrival.from} is arriving!`);
           const road = game.byId.get(event.arrival.track);
           Y.sound.announce(road.kind === 'goods'
-            ? `The goods train from ${event.arrival.from} is now arriving on the goods road.`
-            : `The train from ${event.arrival.from} is now approaching ${road.name.toLowerCase()}. Please stand back from the edge of the platform.`);
+            ? `Toot toot! A goods train from ${event.arrival.from} is coming in!`
+            : `Toot toot! The ${event.arrival.from} train is coming in to ${road.name.toLowerCase()}!`);
           break;
         }
         case 'weather':
@@ -711,7 +711,7 @@
           break;
         case 'derail':
           Y.sound.sad();
-          Y.sound.announce(`Attention please. There has been a derailment on ${game.byId.get(event.track).name.toLowerCase()}. The recovery crane is standing by.`, true);
+          Y.sound.announce(`Oh no! A train has come off the rails on ${game.byId.get(event.track).name.toLowerCase()}! Call the crane!`, true);
           toast(`The ${event.arrival.from} train has derailed on ${game.byId.get(event.track).name}! Click it to call the recovery crew.`, 'bad');
           break;
         case 'recovering':
@@ -743,7 +743,7 @@
         case 'ready':
           toast(`${event.dep.name} is ready!`, 'good');
           Y.sound.ding();
-          Y.sound.announce(`The ${spoken(event.dep.name)} to ${event.dep.dest} is ready to depart from ${game.byId.get(event.dep.track).name.toLowerCase()}.`);
+          Y.sound.announce(`All aboard! The ${spoken(event.dep.name)} to ${event.dep.dest} is ready to go!`);
           break;
         case 'depart': {
           const track = game.byId.get(event.track);

@@ -177,22 +177,32 @@
 
   // ---- Station announcements (a chime, then a spoken message where the browser can do speech) ----
   let voice = null;
+  // Prefer a bright, friendly-sounding English voice (the list differs on every device).
+  const FRIENDLY = /(google uk english female|zira|hazel|susan|samantha|karen|tessa|moira|fiona|libby|sonia|female)/i;
+  function pickVoice() {
+    const voices = window.speechSynthesis.getVoices();
+    voice = voices.find(v => /^en/i.test(v.lang) && FRIENDLY.test(v.name)) ||
+      voices.find(v => /en[-_]GB/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || null;
+  }
+  if ('speechSynthesis' in window) {
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }
+
   function speak(text, urgent) {
     if (muted || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
     const synth = window.speechSynthesis;
     // Don't talk over the last announcement unless this one is urgent.
     if (synth.speaking && !urgent) return;
     if (urgent) synth.cancel();
-    if (!voice) {
-      const voices = synth.getVoices();
-      voice = voices.find(v => /en[-_]GB/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || null;
-    }
+    if (!voice) pickVoice();
     const talk = new SpeechSynthesisUtterance(text);
     if (voice) talk.voice = voice;
     talk.lang = voice ? voice.lang : 'en-GB';
-    talk.rate = 0.95;
-    talk.pitch = 1.05;
-    talk.volume = 0.75;
+    // A high, bouncy, slightly quick voice, like a cartoon station master.
+    talk.rate = 1.12;
+    talk.pitch = 1.75;
+    talk.volume = 0.7;
     synth.speak(talk);
   }
 
