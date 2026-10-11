@@ -126,6 +126,21 @@
       initial: {},
       arrivals: [],
       departures: []
+    },
+    {
+      id: 6,
+      title: 'Free Play',
+      blurb: 'No timetable. A train arrives every 10 minutes if a road is free. Build your own trains: any train with an engine in front on a platform leaves after 2 minutes.',
+      freeplay: true,
+      start: 8 * 60,
+      tracks: ['P1', 'P2', 'G', 'S1', 'S2', 'S3', 'SHED', 'SHED2'],
+      shed: ['steam', 'diesel'],
+      initial: {
+        S1: ['coach', 'coach', 'guard'],
+        S2: ['box', 'coal', 'brake']
+      },
+      arrivals: [],
+      departures: []
     }
   ];
 })();

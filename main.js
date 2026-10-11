@@ -80,6 +80,7 @@
       const max = level.departures.length * 3;
       const got = stars[level.id] || 0;
       const endless = !!level.endless;
+      const freeplay = !!level.freeplay;
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'level-card';
@@ -87,7 +88,8 @@
       card.querySelector('.num').textContent = i + 1;
       card.querySelector('b').textContent = level.title;
       card.querySelector('small').textContent = level.blurb;
-      if (endless) card.querySelector('.earned').innerHTML = got ? `🚂 ${got}<i> best</i>` : '<i>∞</i>';
+      if (freeplay) card.querySelector('.earned').innerHTML = got ? `🚂 ${got}<i> best</i>` : '<i>∞</i>';
+      else if (endless) card.querySelector('.earned').innerHTML = got ? `🚂 ${got}<i> best</i>` : '<i>∞</i>';
       else card.querySelector('.earned').innerHTML = got ? `★ ${got}<i> / ${max}</i>` : `<i>0 / ${max}</i>`;
       card.addEventListener('click', () => {
         Y.sound.unlock();
@@ -111,7 +113,8 @@
     paused = false;
     $('pause').textContent = 'Ⅱ';
     $('level-name').textContent = `Day ${index + 1}: ${game.level.title}`;
-    if (game.endless) $('stars-total').title = 'Trains sent off, and trains missed';
+    if (game.freeplay) $('stars-total').title = 'Trains sent off';
+    else if (game.endless) $('stars-total').title = 'Trains sent off, and trains missed';
     else {
       $('stars-total').title = 'Stars earned this day';
       $('stars-total').innerHTML = starsHtml;
@@ -182,7 +185,7 @@
     board.replaceChildren();
     lastNext = null;
     const rows = [
-      ...game.departures.map(dep => ({ kind: 'dep', item: dep, at: dep.at })),
+      ...game.departures.filter(dep => !dep.free).map(dep => ({ kind: 'dep', item: dep, at: dep.at })),
       ...game.arrivals.map(arrival => ({ kind: 'arr', item: arrival, at: arrival.at }))
     ];
     // Time order; at the same minute the arriving train comes first.
@@ -253,7 +256,9 @@
     lastNext = next;
     $('undo').disabled = !game.canUndo();
     $('clock').textContent = clock(game.minute);
-    if (game.endless) {
+    if (game.freeplay) {
+      $('stars-total').innerHTML = `🚂 <span id="star-count">${game.sent}</span> sent`;
+    } else if (game.endless) {
       $('stars-total').innerHTML = `🚂 <span id="star-count">${game.sent}</span> sent &nbsp;✗ ${game.missed} / ${game.maxMisses}`;
     } else $('star-count').textContent = game.stars;
   }
@@ -564,7 +569,7 @@
           Y.sound.whistle();
           Y.sound.cheer(event.dep.stars);
           renderer.burst(track.xEnd - 40, track.y - 30, 'confetti');
-          toast(`${event.dep.name} departed! ${starText(event.dep.stars)}`, 'good');
+          toast(game.freeplay ? `${event.dep.name} departed!` : `${event.dep.name} departed! ${starText(event.dep.stars)}`, 'good');
           break;
         }
         case 'cancel':

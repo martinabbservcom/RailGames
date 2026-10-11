@@ -184,6 +184,7 @@
       events: [],
       finished: false,
       stars: 0,
+      freeplay: !!level.freeplay,
       maxStars: departures.length * 3,
       pointAt,
       slotU,
@@ -415,9 +416,20 @@
     const IDLE_SECONDS = 5;
     let idle = 0;
 
+    // Pip tucks into an engine shed road if one has room, otherwise goes back to the signal box.
+    function startToShed() {
+      const here = pilot.track === null ? null : byId.get(pilot.track);
+      if (here && isShed(here)) return;
+      const dest = parkingRoad();
+      if (dest && isShed(dest)) startPark(dest);
+      else startHome();
+    }
+
     G.sendHome = () => {
       if (G.busy() || G.finished || pilot.track === null) return false;
-      startHome();
+      const here = byId.get(pilot.track);
+      if (isShed(here)) return false;
+      startToShed();
       return true;
     };
 
@@ -649,6 +661,9 @@
           return moveOut(road, road.cars.length, `The ${held.from} train is waiting at the signal.`);
         }
       }
+      if (freeplay) {
+        return { text: 'Free play: put a train with an engine at the front on a platform or the goods road and it leaves after 2 minutes.' };
+      }
       // 2. Work on the next train to leave.
       const dep = departures
         .filter(d => (d.status === 'waiting' || d.status === 'boarding') && activeDeparture(d.track) === d)
@@ -765,7 +780,7 @@
 
         if (ok) {
           // A correct train doesn't need Pip any more: it uncouples and heads home straight away.
-          if (!G.job && pilot.track === dep.track) startHome();
+          if (!G.job && pilot.track === dep.track) startToShed();
           if (dep.status === 'waiting') {
             dep.status = 'boarding';
             emit('boarding', { dep });
@@ -823,6 +838,8 @@
       G.minute += dt / SECONDS_PER_MINUTE;
       if (endless) extendSchedule();
 
+      if (freeplay) updateFreeplay();
+
       const incoming = arrivalReady();
       const loco = readyLoco();
       if (!G.job && incoming && (pilot.track === null || pilot.track === incoming.track)) {
@@ -876,7 +893,7 @@
           G.finished = true;
           emit('finish', { stars: G.stars, max: 0, sent: G.sent, missed: G.missed });
         }
-      } else if (departures.every(d => d.status === 'done' || d.status === 'cancelled') && G.leaving.length === 0) {
+      } else if (!freeplay && departures.every(d => d.status === 'done' || d.status === 'cancelled') && G.leaving.length === 0) {
         G.finished = true;
         emit('finish', { stars: G.stars, max: G.maxStars });
       }
@@ -971,6 +988,77 @@
     }
 
     if (endless) extendSchedule();
+
+    // ---- Free play ------------------------------------------------------------------
+    // No timetable: a train comes in every 10 minutes if a road is free, and any train standing on a
+    // platform or the goods road with a fit engine at the front boards and leaves after 2 minutes.
+    const freeplay = !!level.freeplay;
+    const FREE_ARRIVAL_GAP = 10; // game minutes between arrivals
+    const FREE_LEAVE_AFTER = 2; // game minutes a built train waits before it goes
+    let nextFreeArrival = level.start;
+
+    function roadFree(id) {
+      const t = byId.get(id);
+      return !!t && !t.locked && t.cars.length === 0 && !isUnloading(id) &&
+        !G.leaving.some(l => l.track === id) && !arrivals.some(a => a.status === 'arriving' && a.track === id);
+    }
+
+    function freeArrival() {
+      const platforms = ['P1', 'P2'].filter(roadFree);
+      let passengers = Math.random() < 0.65;
+      if (passengers && !platforms.length) passengers = false;
+      if (!passengers && !roadFree('G')) passengers = true;
+      if (passengers && !platforms.length) return false;
+      const len = 3 + Math.floor(Math.random() * 4);
+      const cars = [];
+      for (let i = 0; i < len - 1; i++) cars.push(pick(passengers ? PASSENGER_MIX : GOODS_MIX));
+      cars.splice(Math.floor(Math.random() * (cars.length + 1)), 0, passengers ? 'guard' : 'brake');
+      arrivals.push({
+        id: ++nextArrivalId,
+        at: G.minute - level.start,
+        from: pick(TOWNS),
+        track: passengers ? pick(platforms) : 'G',
+        loco: pick(['steam', 'diesel']),
+        cars,
+        status: 'coming'
+      });
+      arrivals.sort((a, b) => a.at - b.at);
+      G.scheduleVersion++;
+      return true;
+    }
+
+    function updateFreeplay() {
+      if (G.minute >= nextFreeArrival && !arrivals.some(a => a.status === 'coming') && freeArrival()) {
+        nextFreeArrival = G.minute + FREE_ARRIVAL_GAP;
+      }
+      const busy = busyTracks();
+      for (let i = departures.length - 1; i >= 0; i--) if (departures[i].status === 'done') departures.splice(i, 1);
+      for (const track of tracks) {
+        if (track.locked || !track.through) continue;
+        const dep = activeDeparture(track.id);
+        const front = track.cars[track.cars.length - 1];
+        const fit = track.cars.length >= 2 && !busy.has(track.id) && !isUnloading(track.id) &&
+          isLoco(front.type) && !needsService(front);
+        if (dep) {
+          if (!fit || !formationMatches(dep, track)) departures.splice(departures.indexOf(dep), 1);
+        } else if (fit) {
+          const dest = pick(TOWNS);
+          departures.push({
+            id: ++nextDepId,
+            free: true,
+            at: G.minute - level.start + FREE_LEAVE_AFTER,
+            track: track.id,
+            dest,
+            name: track.cars.some(v => isPassenger(v.type)) ? `${dest} Local` : `${dest} Goods`,
+            spec: [...track.cars].reverse().map((v, k) => (k === 0 ? 'loco' : v.type)),
+            status: 'waiting',
+            progress: 0,
+            stars: 3,
+            lateBy: 0
+          });
+        }
+      }
+    }
 
     return G;
   }

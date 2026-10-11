@@ -371,9 +371,11 @@
           if (Math.abs(d) < 13) {
             const s = d >= 0 ? 1 : -1;
             const away = (ux * (b.y - bd.y) - uy * (b.x - bd.x)) * s >= 0 ? 1 : -1;
-            // Short side is toward the main line.
-            if (away > 0) inner = 6;
-            else outer = 6;
+            // The short side is toward the main line and stops where the main line's own sleeper ends are,
+            // so the two sets join up. The outer end of the branch sleeper always stays full length.
+            const short = Math.max(2, Math.abs(d) - 9);
+            if (away > 0) inner = Math.min(10, short);
+            else outer = Math.min(10, short);
           }
         }
         ctx.beginPath();
@@ -939,12 +941,25 @@
     }
 
     // A little signal on a post. `state` is 'green', 'amber' or 'red'.
-    function signalPost(x, y, state) {
+    // `dir` (-1 or 1) adds a small arrow under the lamps showing which way the train it controls is going.
+    function signalPost(x, y, state, dir = 0) {
       ctx.fillStyle = INK;
       ctx.fillRect(x - 1.5, y - 30, 3, 36);
       box(ctx, x - 6, y - 40, 12, 20, 5, '#39435c', 2);
       circle(ctx, x, y - 34, 3.6, state === 'green' ? '#3a4a3a' : state === 'amber' ? '#ffb938' : '#ff5d5d');
       circle(ctx, x, y - 25, 3.6, state === 'green' ? '#5dff8a' : '#4a3a3a');
+      if (dir) {
+        ctx.beginPath();
+        ctx.moveTo(x + dir * 4, y - 12);
+        ctx.lineTo(x - dir * 2.5, y - 16);
+        ctx.lineTo(x - dir * 2.5, y - 8);
+        ctx.closePath();
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = INK;
+        ctx.stroke();
+      }
     }
 
     // Entry signals: one at the throat of each road that a train arrives on. Red until the road is empty, amber when a train is due soon.
@@ -952,8 +967,8 @@
       const used = new Set(G.arrivals.map(a => a.track));
       for (const track of G.tracks) {
         if (track.locked || !used.has(track.id)) continue;
-        // Trains come in from the right, so the entry signal stands at the right-hand end of the road.
-        signalPost(track.xEnd + 58, track.y + 26, G.entrySignal(track.id));
+        // Trains come in from the right: the entry signal (arrow pointing left) stands beside the road at its right-hand end.
+        signalPost(track.xEnd + 58, track.y - 16, G.entrySignal(track.id), -1);
       }
     }
 
@@ -963,7 +978,8 @@
         if (!track.through) continue;
         const dep = G.activeDeparture(track.id);
         const state = dep && dep.status === 'ready' ? 'green' : dep && dep.status === 'boarding' ? 'amber' : 'red';
-        signalPost(track.xEnd + 38, track.y - 4, state);
+        // The exit signal (arrow pointing right) stands beside the road, just past the end of the train.
+        signalPost(track.xEnd + 32, track.y - 16, state, 1);
       }
     }
 
