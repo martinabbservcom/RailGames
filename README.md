@@ -22,7 +22,7 @@ Tips: to turn a train round, move vehicles one at a time onto another track. Use
 2. **Market Day**: passenger and freight trains, with a second platform and the goods road.
 3. **Festival Weekend**: a busy yard with VIP, mail and heritage steam trains that earn bonus stars.
 4. **Rush Hour**: rain, and the turntable: engines have a direction and must be turned before they pull a train.
-5. **Endless Rush**: a timetable that keeps getting busier, with random events (track works, derailments with a recovery crane, signal failures and engine breakdowns), changing weather and a full day and night. One engine can only pull five vehicles, so long trains need two.
+5. **Endless Rush**: a timetable that keeps getting busier, with random events (track works, derailments with a recovery crane, signal failures and engine breakdowns), changing weather and a full day and night. One engine can only pull six wagons or coaches, so longer trains need two.
 6. **Free Play**: no timetable. A train arrives every ten minutes (or call one in early), and any train with a serviced engine in front and a van at the back leaves from a platform after two minutes.
 
 Stars from days 1 to 4 can be spent on **Upgrades** from the menu. Your best results and upgrades are saved in the browser. The **Stats** button shows how the day is going.
