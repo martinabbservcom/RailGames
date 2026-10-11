@@ -108,7 +108,8 @@
     while (toasts.children.length > 3) toasts.firstChild.remove();
   }
 
-  const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+  // Special trains can earn more than three stars (bonus stars), so don't go negative.
+  const starText = n => '★'.repeat(n) + '☆'.repeat(Math.max(0, 3 - n));
 
   function show(id) {
     for (const overlay of OVERLAYS) $(overlay).classList.toggle('hidden', overlay !== id);
@@ -819,6 +820,16 @@
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
+    try {
+      step(now, dt);
+    } catch (error) {
+      // One bad frame must never stop the game for good.
+      console.error(error);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function step(now, dt) {
     if (game && renderer) {
       const covered = overlayOpen();
       if (!paused && !covered && !tutorialHolds()) {
@@ -866,7 +877,6 @@
         highlight: tutorialHighlight()
       });
     }
-    requestAnimationFrame(frame);
   }
 
   // ---- Stats ------------------------------------------------------------------------
