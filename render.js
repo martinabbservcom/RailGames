@@ -327,9 +327,12 @@
   function drawTrackBed(ctx, track, pointAt, layer) {
     const samples = [];
     const start = -270;
-    for (let u = start; u < track.uEnd + 60; u += 5) samples.push(pointAt(track, u));
+    // A road with a buffer stops at the buffer; a through road carries on off the edge of the screen.
+    const endU = track.through ? track.uEnd + (1130 - track.xEnd) : track.uEnd + 6;
+    for (let u = start; u < endU; u += 5) samples.push(pointAt(track, u));
+    samples.push(pointAt(track, endU));
     if (layer === 'ballast') {
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'butt';
       ctx.lineJoin = 'round';
       ctx.beginPath();
       samples.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
@@ -339,7 +342,7 @@
       return;
     }
     if (layer === 'ballast2') {
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'butt';
       ctx.lineJoin = 'round';
       ctx.beginPath();
       samples.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
@@ -355,7 +358,7 @@
       ctx.lineCap = 'butt';
       // Every sleeper is drawn at full length, so both ends show all the way round a curve. Where a
       // branch leaves the spine the sleepers overlap and fan out, like the sleepers at real points.
-      for (let u = start; u < track.uEnd + 40; u += 12) {
+      for (let u = start; u <= endU; u += 12) {
         const p = pointAt(track, u);
         const nx = -Math.sin(p.a) * 11;
         const ny = Math.cos(p.a) * 11;
