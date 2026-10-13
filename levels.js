@@ -71,13 +71,17 @@
       arrivals: [
         { at: 0, from: 'Hillbury', track: 'P2', loco: 'diesel', cars: ['coal', 'coach', 'brake', 'guard', 'coach'] },
         { at: 7, from: 'Marshford', track: 'P1', loco: 'steam', cars: ['box', 'tank', 'coach', 'buffet', 'coal'] },
-        { at: 16, from: 'Dockside', track: 'P2', loco: 'diesel', cars: ['first', 'logs', 'box', 'guard', 'brake'] }
+        { at: 16, from: 'Dockside', track: 'P2', loco: 'diesel', cars: ['first', 'logs', 'box', 'guard', 'brake'] },
+        { at: 28, from: 'Castle Hill', track: 'P1', loco: 'diesel', cars: ['coach', 'coach', 'guard', 'first'] },
+        { at: 38, from: 'Quarry', track: 'G', loco: 'steam', cars: ['logs', 'logs', 'coal', 'brake'] }
       ],
       departures: [
         { at: 20, track: 'P1', name: 'Market Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] },
         { at: 32, track: 'G', name: 'Coal to Cityville', dest: 'Cityville', spec: ['loco', 'coal', 'coal', 'tank', 'brake'] },
         { at: 46, track: 'P2', name: 'Café Flyer', special: 'vip', dest: 'Lakeside', spec: ['loco', 'coach', 'buffet', 'first', 'guard'] },
-        { at: 62, track: 'G', name: 'Farm Goods', dest: 'Dockside', spec: ['loco', 'box', 'box', 'logs', 'brake'] }
+        { at: 62, track: 'G', name: 'Farm Goods', dest: 'Dockside', spec: ['loco', 'box', 'box', 'logs', 'brake'] },
+        { at: 76, track: 'P1', name: 'Hill Hopper', dest: 'Hillbury', spec: ['loco', 'coach', 'coach', 'first', 'guard'] },
+        { at: 92, track: 'G', name: 'Quarry Run', dest: 'Cityville', spec: ['loco', 'logs', 'logs', 'coal', 'brake'] }
       ]
     },
     {
@@ -97,7 +101,9 @@
         { at: 0, from: 'Hillbury', track: 'P2', loco: 'diesel', cars: ['buffet', 'coach', 'guard', 'coach'] },
         { at: 5, from: 'Dockside', track: 'P1', loco: 'steam', cars: ['brake', 'logs', 'first', 'coach', 'coach'] },
         { at: 12, from: 'Marshford', track: 'P2', loco: 'diesel', cars: ['guard', 'buffet', 'box', 'coach'] },
-        { at: 22, from: 'Castle Hill', track: 'P1', loco: 'steam', cars: ['first', 'logs', 'coach', 'brake', 'guard', 'buffet'] }
+        { at: 22, from: 'Castle Hill', track: 'P1', loco: 'steam', cars: ['first', 'logs', 'coach', 'brake', 'guard', 'buffet'] },
+        { at: 34, from: 'Hillbury', track: 'P1', loco: 'diesel', cars: ['coach', 'coach', 'guard', 'first', 'buffet'] },
+        { at: 46, from: 'Dockside', track: 'G', loco: 'steam', cars: ['box', 'logs', 'logs', 'brake'] }
       ],
       departures: [
         { at: 16, track: 'P1', name: 'Early Commuter', special: 'heritage', dest: 'Cityville', spec: ['steam', 'coach', 'coach', 'coach', 'guard'] },
@@ -105,7 +111,9 @@
         { at: 42, track: 'P2', name: 'Festival Special', special: 'vip', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'coach', 'guard'] },
         { at: 58, track: 'G', name: 'Timber Express', dest: 'Dockside', spec: ['loco', 'logs', 'logs', 'logs', 'brake'] },
         { at: 72, track: 'P1', name: 'Café Cruiser', dest: 'Skegness', spec: ['loco', 'buffet', 'coach', 'coach', 'guard'] },
-        { at: 88, track: 'P2', name: 'Golden Jubilee', special: 'vip', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] }
+        { at: 88, track: 'P2', name: 'Golden Jubilee', special: 'vip', dest: 'Castle Hill', spec: ['loco', 'first', 'first', 'buffet', 'guard'] },
+        { at: 104, track: 'P1', name: 'Evening Belle', special: 'vip', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'guard'] },
+        { at: 116, track: 'G', name: 'Harvest Freight', dest: 'Greenfield', spec: ['loco', 'box', 'logs', 'logs', 'brake'] }
       ]
     },
     {
@@ -125,13 +133,17 @@
         { at: 4, from: 'Marshford', track: 'P2', loco: 'steam', cars: ['first', 'buffet', 'coach', 'guard'] },
         { at: 10, from: 'Dockside', track: 'G', loco: 'diesel', cars: ['box', 'box', 'logs', 'brake'] },
         { at: 20, from: 'Lakeside', track: 'P2', loco: 'steam', cars: ['coach', 'coach', 'guard', 'first'] },
-        { at: 30, from: 'Castle Hill', track: 'P1', loco: 'diesel', cars: ['coach', 'buffet', 'coach', 'guard'] }
+        { at: 30, from: 'Castle Hill', track: 'P1', loco: 'diesel', cars: ['coach', 'buffet', 'coach', 'guard'] },
+        { at: 40, from: 'Quarry', track: 'G', loco: 'diesel', cars: ['coal', 'tank', 'logs', 'brake'] },
+        { at: 48, from: 'Marshford', track: 'P1', loco: 'steam', cars: ['coach', 'coach', 'buffet', 'guard', 'first'] }
       ],
       departures: [
         { at: 18, track: 'P1', name: 'Morning Express', special: 'heritage', dest: 'Cityville', spec: ['steam', 'coach', 'coach', 'guard'] },
         { at: 34, track: 'G', name: 'Brick Train', special: 'mail', dest: 'Dockside', spec: ['loco', 'box', 'box', 'brake'] },
         { at: 46, track: 'P2', name: 'Lake Flyer', special: 'vip', dest: 'Lakeside', spec: ['loco', 'first', 'buffet', 'coach', 'guard'] },
-        { at: 62, track: 'P1', name: 'Evening Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] }
+        { at: 62, track: 'P1', name: 'Evening Local', dest: 'Greenfield', spec: ['loco', 'coach', 'coach', 'guard'] },
+        { at: 78, track: 'G', name: 'Coal Haul', dest: 'Cityville', spec: ['loco', 'coal', 'coal', 'tank', 'brake'] },
+        { at: 92, track: 'P2', name: 'Sunset Limited', special: 'vip', dest: 'Skegness', spec: ['loco', 'first', 'buffet', 'coach', 'coach', 'guard'] }
       ]
     },
     {

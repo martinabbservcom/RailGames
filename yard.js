@@ -229,9 +229,9 @@
       if (STAT_EVENTS[type]) G.stats[STAT_EVENTS[type]]++;
       G.events.push({ type, ...data });
     };
-    const DERAIL_CHANCE = 0.14 * (up.has('safe') ? 0.5 : 1); // chance that an arriving train derails (events levels only)
+    const DERAIL_CHANCE = 0.14 * (level.endless ? 0.5 : 1) * (up.has('safe') ? 0.5 : 1); // chance that an arriving train derails (events levels only)
     const DERAIL_AFTER = 12; // game minutes into the day before the first derailment can happen
-    const BREAKDOWN_CHANCE = 0.12 * (up.has('safe') ? 0.5 : 1); // chance that a departing train's engine breaks down (events levels only)
+    const BREAKDOWN_CHANCE = 0.12 * (level.endless ? 0.5 : 1) * (up.has('safe') ? 0.5 : 1); // chance that a departing train's engine breaks down (events levels only)
     let safeDepartures = 0; // trains that have left without a breakdown since the last one
     const BREAKDOWN_DELAY = 4; // extra game minutes given to a train whose engine broke down
     const RECOVER_SECONDS = up.has('crew') ? 14 : 24; // real seconds the recovery crane needs once called, at 1x
@@ -882,8 +882,8 @@
               dep.breakChecked = true;
               // The chance climbs with every train that leaves safely, and the third departure of a day with
               // events always breaks down if none has yet, so a breakdown is never missed for long.
-              const chance = Math.min(0.6, BREAKDOWN_CHANCE * (G.weather && G.weather.kind === 'rain' ? 1.3 : 1) + 0.08 * safeDepartures);
-              if ((!G.stats.breakdowns && safeDepartures >= 2) || (safeDepartures >= 1 && Math.random() < chance)) {
+              const chance = Math.min(0.6, BREAKDOWN_CHANCE * (G.weather && G.weather.kind === 'rain' ? 1.3 : 1) + (level.endless ? 0.03 : 0.08) * safeDepartures);
+              if (((!level.endless && !G.stats.breakdowns && safeDepartures >= 2)) || (safeDepartures >= 1 && Math.random() < chance)) {
                 safeDepartures = 0;
                 breakDown(dep, track);
                 continue;
@@ -1056,7 +1056,7 @@
       });
       for (const type of cars) gen.pool[passengers ? 'passenger' : 'goods'].push({ type, avail: at + 3 });
       // Trains come thicker and faster the longer you last.
-      gen.t += Math.max(4.5, 11 - n * 0.45) + rnd(-1, 1.5);
+      gen.t += Math.max(6, 11 - n * 0.3) + rnd(-1, 1.5);
     }
 
     // Plan one departure out of the vehicles that are (or soon will be) in the yard.
@@ -1078,7 +1078,7 @@
       if (kind === 'passenger') {
         track = ['P1', 'P2'].sort((a, b) => (gen.lastDep.get(a) || 0) - (gen.lastDep.get(b) || 0))[0];
       }
-      const gap = Math.max(8, 18 - n * 0.8) + rnd(0, 2);
+      const gap = Math.max(11, 18 - n * 0.5) + rnd(0, 2);
       const ready = Math.max(backCar.avail, ...mids.map(v => v.avail));
       const at = Math.max(ready + gap, (gen.lastDep.get(track) || 0) + 5);
       gen.lastDep.set(track, at);
