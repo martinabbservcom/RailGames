@@ -4,7 +4,7 @@
   const Y = (window.Yard = window.Yard || {});
 
   // Shown on the main menu so you can tell which version of the code is loaded. Increase it with every change.
-  Y.VERSION = '1.5';
+  Y.VERSION = '1.6';
 
   // kind: 'loco' | 'coach' | 'wagon'
   Y.TYPES = {

@@ -1850,26 +1850,45 @@
       ctx.globalAlpha = 1;
     }
 
+    // A bubble over the road the next train is coming in on, so a train still standing there gets moved out of the way.
     function arrivalHint(time) {
       const waiting = G.waitingArrival();
       const next = G.arrivals.find(a => a.status === 'coming');
       let text = '';
-      if (waiting) text = `A train is waiting at the signal! Clear ${G.byId.get(waiting.track).name}.`;
-      else if (next && !G.job) {
+      let arrival = null;
+      if (waiting) {
+        arrival = waiting;
+        text = `A train is waiting at the signal! Clear ${G.byId.get(waiting.track).name}.`;
+      } else if (next && !G.job) {
         const left = next.at + G.level.start - G.minute;
-        if (left > 0 && left < 3) text = 'A train is coming in soon…';
+        if (left > 0 && left < 3) {
+          arrival = next;
+          text = `A train is coming in soon on ${G.byId.get(next.track).name}…`;
+        }
       }
       if (!text) return;
-      const y = 668 + Math.sin(time / 250) * 2;
+      const track = G.byId.get(arrival.track);
       ctx.font = `700 12px ${FONT}`;
       const w = ctx.measureText(text).width + 22;
-      path(ctx, 10, y - 28, w, 24, 12);
+      const right = Math.min(track.xEnd + 40, G.W - 8);
+      const x = right - w;
+      const y = track.y - 68 + Math.sin(time / 250) * 2;
+      path(ctx, x, y - 12, w, 24, 12);
       ctx.fillStyle = waiting ? '#ffe0e0' : '#fff7d0';
       ctx.fill();
       ctx.lineWidth = 2;
       ctx.strokeStyle = INK;
       ctx.stroke();
-      label(ctx, text, 21, y - 15.5, 12, INK, 'left', 700);
+      // A little pointer down to the road.
+      ctx.beginPath();
+      ctx.moveTo(right - 40, y + 11);
+      ctx.lineTo(right - 28, y + 11);
+      ctx.lineTo(right - 34, y + 20);
+      ctx.closePath();
+      ctx.fillStyle = waiting ? '#ffe0e0' : '#fff7d0';
+      ctx.fill();
+      ctx.stroke();
+      label(ctx, text, x + 11, y + 0.5, 12, INK, 'left', 700);
     }
 
     const traffic = [];
