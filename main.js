@@ -695,6 +695,9 @@
         case 'weather':
           toast({ rain: 'Rain is coming in. Wet rails make derailments more likely.', fog: 'Fog is rolling in. Signals are more likely to fail.', cloudy: 'Clouds are gathering.', clear: 'The weather is clearing up.' }[event.kind]);
           break;
+        case 'dumped':
+          toast('A spare train has left the yard. That clears some space!', 'good');
+          break;
         case 'servicing':
           toast('The engine is being serviced in the shed.');
           break;

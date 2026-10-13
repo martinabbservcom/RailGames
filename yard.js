@@ -1015,6 +1015,7 @@
       }
 
       updateDepartures(dt);
+      if (endless) updateDumps();
       updateLeaving(dt);
 
       if (endless) {
@@ -1117,6 +1118,49 @@
         lateBy: 0
       });
       return true;
+    }
+
+    // ---- Spare trains (Endless Rush) ----------------------------------------------------
+    // A proper train (engine in front, guard's or brake van at the back) that stands on a platform or the goods
+    // road without being any timetabled train leaves by itself after 2 minutes. That lets the player clear the
+    // sidings when they fill up. A train that is still being built for the next departure is left alone.
+    const DUMP_MINUTES = 2;
+    const dumpSince = new Map();
+    G.dumpProgress = id => {
+      const since = dumpSince.get(id);
+      return since === undefined ? 0 : Math.min(1, (G.minute - since) / DUMP_MINUTES);
+    };
+
+    function updateDumps() {
+      const busy = busyTracks();
+      for (const track of tracks) {
+        if (track.locked || !track.through) continue;
+        const cars = track.cars;
+        const front = cars[cars.length - 1];
+        const dep = activeDeparture(track.id);
+        // Is this road's next timetabled train being built (cars so far match its front)?
+        const building = !!dep && cars.length <= dep.spec.length && cars.every((v, i) => {
+          const token = dep.spec[cars.length - 1 - i];
+          return isEngineToken(token) ? engineOk(v, token) : v.type === token;
+        });
+        const fit = cars.length >= 2 && !busy.has(track.id) && !isUnloading(track.id) &&
+          engineOk(front, 'loco') && isVan(cars[0].type) && !G.passengersOnGoods(track) && !G.overPull(track) &&
+          !building && !(dep && formationMatches(dep, track));
+        if (!fit) {
+          dumpSince.delete(track.id);
+          continue;
+        }
+        if (!dumpSince.has(track.id)) dumpSince.set(track.id, G.minute);
+        if (!G.job && pilot.track === track.id) startToShed();
+        if (G.minute - dumpSince.get(track.id) >= DUMP_MINUTES) {
+          dumpSince.delete(track.id);
+          const gone = track.cars.splice(0);
+          for (const v of gone) v.facing = 1;
+          undoState = null;
+          G.leaving.push({ track: track.id, cars: gone, base: slotU(track, 0, gone.length) - SP, v: 0, dep: null, slow: track.signalFailedUntil > G.minute });
+          emit('dumped', { track: track.id });
+        }
+      }
     }
 
     function extendSchedule() {

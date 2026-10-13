@@ -1364,6 +1364,8 @@
     // A passenger plane now and then crosses the sky, trailing a thin white vapour trail.
     let plane = null;
     let nextPlane = null;
+    let jet = null; // the red stunt jet, now and then
+    let nextJet = null;
 
     function drawPlane(p) {
       const trail = ctx.createLinearGradient(p.x, 0, p.x - p.dir * 160, 0);
@@ -1426,6 +1428,122 @@
       if ((plane.dir > 0 && plane.x > G.W + 220) || (plane.dir < 0 && plane.x < -220)) {
         plane = null;
         nextPlane = time + 25000 + Math.random() * 45000;
+      }
+    }
+
+    // Now and then a little red jet flies in over the village, trailing blue vapour, does a loop the loop and flies off.
+    const JET_LOOP_R = 34;
+    const JET_TRAIL_MS = 2600;
+
+    function jetPose(j) {
+      const lead = j.loopX + 90;
+      const loop = 2 * Math.PI * JET_LOOP_R;
+      const cy = j.yBottom - JET_LOOP_R;
+      if (j.s < lead) return { x: j.s - 90, y: j.yBottom, a: 0 };
+      if (j.s < lead + loop) {
+        const th = (j.s - lead) / JET_LOOP_R;
+        return { x: j.loopX + JET_LOOP_R * Math.sin(th), y: cy + JET_LOOP_R * Math.cos(th), a: -th };
+      }
+      return { x: j.loopX + (j.s - lead - loop), y: j.yBottom - (j.s - lead - loop) * 0.05, a: -0.05 };
+    }
+
+    function drawJetBody(pose) {
+      ctx.save();
+      ctx.translate(pose.x, pose.y);
+      ctx.rotate(pose.a);
+      // Engine glow.
+      ctx.beginPath();
+      ctx.moveTo(-22, -2.5);
+      ctx.lineTo(-32 - Math.random() * 4, 0);
+      ctx.lineTo(-22, 2.5);
+      ctx.closePath();
+      ctx.fillStyle = '#ffb938';
+      ctx.fill();
+      // Tail fin, body, wing and canopy.
+      ctx.beginPath();
+      ctx.moveTo(-21, -4);
+      ctx.lineTo(-27, -16);
+      ctx.lineTo(-15, -16);
+      ctx.lineTo(-8, -4);
+      ctx.closePath();
+      ctx.fillStyle = '#d93a3f';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(27, 0);
+      ctx.lineTo(12, -6);
+      ctx.lineTo(-21, -5);
+      ctx.lineTo(-23, 0);
+      ctx.lineTo(-21, 5);
+      ctx.lineTo(12, 6);
+      ctx.closePath();
+      ctx.fillStyle = '#e5484d';
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-14, -1, 18, 2);
+      ctx.beginPath();
+      ctx.moveTo(6, 3);
+      ctx.lineTo(-8, 15);
+      ctx.lineTo(-15, 15);
+      ctx.lineTo(-7, 3);
+      ctx.closePath();
+      ctx.fillStyle = '#c93a3f';
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(6, -5, 7, 4, 0, Math.PI, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#9fd3ff';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateJet(time, dt) {
+      if (nextJet === null) nextJet = time + 40000 + Math.random() * 80000;
+      // The jet only flies when it is sunny: clear skies and daylight. Otherwise it waits for better weather.
+      const sunny = G.weather.kind === 'clear' && darknessAt(G.hour()) < 0.25;
+      if (!jet && time >= nextJet && sunny) {
+        jet = { s: 0, loopX: 200 + Math.random() * 140, yBottom: 96, trail: [], flying: true };
+      }
+      if (!jet) return;
+      if (jet.flying) {
+        jet.s += 210 * dt;
+        const pose = jetPose(jet);
+        jet.pose = pose;
+        // The vapour is left behind the tail.
+        jet.trail.push({ x: pose.x - Math.cos(pose.a) * 24, y: pose.y - Math.sin(pose.a) * 24, t: time });
+        if (pose.x > G.W + 60) jet.flying = false;
+      }
+      while (jet.trail.length && time - jet.trail[0].t > JET_TRAIL_MS) jet.trail.shift();
+      // Vapour trail: a soft blue ribbon that widens and fades.
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (let i = 1; i < jet.trail.length; i++) {
+        const p = jet.trail[i];
+        const q = jet.trail[i - 1];
+        const age = (time - p.t) / JET_TRAIL_MS;
+        ctx.globalAlpha = Math.max(0, 1 - age) * 0.75;
+        ctx.strokeStyle = '#7ec0ff';
+        ctx.lineWidth = 5 + age * 9;
+        ctx.beginPath();
+        ctx.moveTo(q.x, q.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.globalAlpha = Math.max(0, 1 - age) * 0.6;
+        ctx.strokeStyle = '#d6ecff';
+        ctx.lineWidth = 2 + age * 3;
+        ctx.stroke();
+      }
+      ctx.restore();
+      if (jet.flying) drawJetBody(jet.pose);
+      if (!jet.flying && !jet.trail.length) {
+        jet = null;
+        nextJet = time + 240000 + Math.random() * 360000;
       }
     }
 
@@ -1719,6 +1837,26 @@
         ctx.fillStyle = '#5aa9ff';
         ctx.fill();
         label(ctx, G.unloadingKind(u.track) === 'goods' ? 'Unloading…' : 'Disembarking…', mid, y + 0.5, 11, INK, 'center', 700);
+      }
+    }
+
+    // A bar over a spare train that is about to leave the yard by itself (Endless Rush).
+    function spareBars() {
+      for (const track of G.tracks) {
+        const p = G.dumpProgress(track.id);
+        if (p <= 0 || !track.cars.length) continue;
+        const mid = track.xEnd - (track.cars.length * G.SP) / 2;
+        const y = track.y - 52;
+        path(ctx, mid - 76, y - 11, 152, 22, 11);
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = INK;
+        ctx.stroke();
+        path(ctx, mid - 72, y - 7, Math.max(8, 144 * p), 14, 7);
+        ctx.fillStyle = '#9aa7bd';
+        ctx.fill();
+        label(ctx, 'Spare train leaving…', mid, y + 0.5, 11, INK, 'center', 700);
       }
     }
 
@@ -2187,6 +2325,7 @@
       ctx.drawImage(treeLayer, 0, 0, G.W, G.H);
       drawClouds(env, time);
       updatePlane(time, dt);
+      updateJet(time, dt);
       // Clouds (and planes) drift behind the station building, which has its own layer so it hides only what it covers.
       ctx.drawImage(stationLayer, 0, 0, G.W, G.H);
       windmill(time);
@@ -2306,6 +2445,7 @@
       if (!pilot.work && Math.random() < dt * 0.7) puff(pilot.x + 14, pilot.y - 52, false);
 
       boardingBars(time);
+      spareBars();
       unloadingBars();
       arrivalHint(time);
       drawParticles();

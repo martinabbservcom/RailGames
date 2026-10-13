@@ -4,7 +4,7 @@
   const Y = (window.Yard = window.Yard || {});
 
   // Shown on the main menu so you can tell which version of the code is loaded. Increase it with every change.
-  Y.VERSION = '1.6';
+  Y.VERSION = '1.9';
 
   // kind: 'loco' | 'coach' | 'wagon'
   Y.TYPES = {
@@ -152,7 +152,7 @@
     {
       id: 5,
       title: 'Endless Rush',
-      blurb: 'Trains keep coming and it only gets busier, with track works and derailments. How long can you last? The day ends when you miss 3 trains.',
+      blurb: 'Trains keep coming and it only gets busier, with track works and derailments. How long can you last? The day ends when you miss 3 trains. Short of space? Build a spare train (engine at the front, guard or brake van at the back) on a platform or the goods road and it leaves after 2 minutes.',
       endless: true,
       events: true,
       pullLimit: 6,
