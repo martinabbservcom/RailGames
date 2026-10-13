@@ -1220,22 +1220,12 @@
       }
     }
 
-    // Entry signals: one at the throat of each road that a train arrives on. Red until the road is empty, amber when a train is due soon.
-    function entrySignals() {
-      for (const track of G.tracks) {
-        if (track.locked || !track.through) continue;
-        // Trains come in from the right: the entry signal (arrow pointing left) stands beside the road at its right-hand end.
-        signalPost(track.xEnd + 58, track.y - 16, G.entrySignal(track.id), -1);
-      }
-    }
-
     function signals() {
-      entrySignals();
       for (const track of G.tracks) {
         if (!track.through) continue;
         const dep = G.activeDeparture(track.id);
-        const state = dep && dep.status === 'ready' ? 'green' : dep && dep.status === 'boarding' ? 'amber' : 'red';
-        // The exit signal (arrow pointing right) stands beside the road, just past the end of the train.
+        const state = G.departureGreen(dep) ? 'green' : 'red';
+        // The departure light stays red until a minute before the train is due, then goes green so it can leave. It stands beside the road, just past the end of the train.
         signalPost(track.xEnd + 32, track.y - 16, track.signalFailedUntil > G.minute ? 'fault' : state, 1);
       }
     }

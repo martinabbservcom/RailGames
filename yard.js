@@ -853,6 +853,10 @@
       return set;
     }
 
+    // The departure light turns green this many minutes before the due time, and a ready train may then leave.
+    const GO_EARLY = 1;
+    G.departureGreen = dep => !!dep && dep.status === 'ready' && G.minute >= level.start + dep.at - GO_EARLY;
+
     function updateDepartures(dt) {
       const busy = busyTracks();
       for (const dep of departures) {
@@ -876,7 +880,7 @@
               emit('ready', { dep });
             }
           }
-          if (dep.progress >= 1 && G.minute >= due) {
+          if (dep.progress >= 1 && G.minute >= due - GO_EARLY) {
             // Random event: the engine may break down just as the train is about to leave.
             if (eventsOn && !dep.breakChecked) {
               dep.breakChecked = true;
