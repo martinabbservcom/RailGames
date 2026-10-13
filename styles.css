@@ -213,3 +213,14 @@ button { font: inherit; cursor: pointer; }
 html.is-touch .tutorial { left: 64px; width: min(340px, calc(100% - 78px)); }
 .board.tut-pulse { animation: boardpulse 1.2s ease-in-out infinite; }
 @keyframes boardpulse { 50% { box-shadow: inset 0 0 0 5px var(--orange); } }
+
+/* Timetable: arrivals sit to the left in red, departures are offset to the right in green. */
+.cards .card.arr { margin-right: 28px; border-color: #e8a3a3; border-left: 8px solid #d94f4f; background: #fff1f1; box-shadow: 0 3px 0 #e8a3a3; }
+.cards .card.dep { margin-left: 28px; border-color: #9fd9b4; border-left: 8px solid #2f9e6b; background: #f0fbf4; box-shadow: 0 3px 0 #9fd9b4; }
+.cards .card.dep.active { border-color: #2f9e6b; box-shadow: 0 3px 0 #1f7a50; }
+.cards .card.dep.special { border-color: #f2c94c; border-left-color: #2f9e6b; box-shadow: 0 3px 0 #f2c94c; background: #fffbea; }
+.cards .card.arr.status-arriving { border-color: #d94f4f; }
+.cards .card.arr.status-derailed { border-color: #d94f4f; background: #ffd9d9; }
+.cards .card.next { box-shadow: 0 0 0 3px #ffd23f, 0 3px 0 #e6a56a; }
+.cards .card.status-done { border-color: #a9e3bf; background: #f1fff6; box-shadow: 0 3px 0 #a9e3bf; }
+.cards .card.status-cancelled { border-color: #f0b0b0; background: #fff3f3; box-shadow: 0 3px 0 #f0b0b0; }
