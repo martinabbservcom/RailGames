@@ -605,12 +605,24 @@
   for (const button of document.querySelectorAll('.speed button')) {
     button.addEventListener('click', () => setSpeed(Number(button.dataset.speed)));
   }
-  $('music').addEventListener('click', () => {
-    const on = !Y.sound.isMusicOn();
-    Y.sound.setMusic(on);
+  // The music setting is remembered between visits.
+  const MUSIC_KEY = 'sibsey.music';
+  function showMusic(on) {
     $('music').classList.toggle('on', on);
     $('music').textContent = on ? '♫' : '✕';
     $('music').setAttribute('aria-label', on ? 'Music on' : 'Music off');
+  }
+  try {
+    if (localStorage.getItem(MUSIC_KEY) === 'off') {
+      Y.sound.setMusic(false);
+      showMusic(false);
+    }
+  } catch (e) { /* private browsing: just start with music on */ }
+  $('music').addEventListener('click', () => {
+    const on = !Y.sound.isMusicOn();
+    Y.sound.setMusic(on);
+    showMusic(on);
+    try { localStorage.setItem(MUSIC_KEY, on ? 'on' : 'off'); } catch (e) { /* ignore */ }
   });
   $('sound').addEventListener('click', () => {
     const mute = !Y.sound.isMuted();
