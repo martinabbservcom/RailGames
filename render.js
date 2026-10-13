@@ -829,6 +829,477 @@
     ctx.stroke();
   }
 
+  // ---- The building site at the bottom of the yard -----------------------------------------
+  // Each numbered day a little more of Sibsey Town Hall gets built, and on the last day it opens.
+  // Endless Rush and Free Play show the finished building. `stage` runs from 1 to 4.
+  const SITE_TEXT = ['Coming soon...', 'Still coming soon...', 'Nearly there!', 'NOW OPEN!'];
+
+  function bricks(ctx, x, y, w, h) {
+    if (w <= 0 || h <= 0) return;
+    ctx.fillStyle = '#d9694f';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(0,0,0,.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let yy = y + 8; yy < y + h; yy += 8) {
+      ctx.moveTo(x, yy);
+      ctx.lineTo(x + w, yy);
+    }
+    ctx.stroke();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = INK;
+    ctx.strokeRect(x, y, w, h);
+  }
+
+  function siteWindow(ctx, cx, y) {
+    box(ctx, cx - 9, y, 18, 20, 3, '#d9f1ff', 2);
+    ctx.beginPath();
+    ctx.moveTo(cx, y);
+    ctx.lineTo(cx, y + 20);
+    ctx.moveTo(cx - 9, y + 10);
+    ctx.lineTo(cx + 9, y + 10);
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+  }
+
+  function cone(ctx, x, y) {
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y);
+    ctx.lineTo(x + 6, y);
+    ctx.lineTo(x + 2.5, y - 14);
+    ctx.lineTo(x - 2.5, y - 14);
+    ctx.closePath();
+    ctx.fillStyle = '#ff7a2f';
+    ctx.fill();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - 3.6, y - 8, 7.2, 3);
+  }
+
+  function hardHat(ctx, x, y) {
+    ctx.beginPath();
+    ctx.arc(x, y, 5, Math.PI, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#ffd23f';
+    ctx.fill();
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(x - 6.5, y - 0.5, 13, 2);
+  }
+
+  function worker(ctx, x, y, color, bob, wave) {
+    drawPerson(ctx, x, y, color, bob, wave);
+    hardHat(ctx, x, y - Math.abs(bob) - 17.5);
+  }
+
+  // A digger with a face. It faces right; `mode` is 'dig' or 'wave'.
+  function drawDigger(ctx, t, mode) {
+    box(ctx, -30, -9, 60, 12, 6, '#39435c', 2);
+    for (const x of [-22, -8, 6, 20]) circle(ctx, x, -3, 3.2, '#c9d3e6', 1.2);
+    box(ctx, -22, -28, 40, 20, 4, '#f4b823');
+    box(ctx, -22, -50, 24, 24, 4, '#ffcf3d');
+    box(ctx, -18, -46, 16, 12, 3, '#d9f1ff', 1.5);
+    eyes(ctx, -10, -40, 3.2, 2.6, 1);
+    smile(ctx, -9, -37.5, 3.2);
+    circle(ctx, -22, -52, 3, Math.floor(t / 300) % 2 ? '#ffb938' : '#c77a1a', 1.5);
+    const s = Math.sin(t / 700);
+    const a1 = mode === 'wave' ? -1.15 + 0.08 * s : -0.85 + 0.3 * s;
+    const a2 = mode === 'wave' ? 0.4 + 0.4 * Math.sin(t / 180) : 1.0 + 0.55 * Math.sin(t / 700 + 1);
+    const px = 10;
+    const py = -30;
+    const ex = px + Math.cos(a1) * 40;
+    const ey = py + Math.sin(a1) * 40;
+    const hx = ex + Math.cos(a1 + a2) * 30;
+    const hy = ey + Math.sin(a1 + a2) * 30;
+    ctx.lineCap = 'round';
+    for (const [x0, y0, x1, y1] of [[px, py, ex, ey], [ex, ey, hx, hy]]) {
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.lineWidth = 9;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#f4b823';
+      ctx.stroke();
+    }
+    circle(ctx, px, py, 4, '#39435c', 1.5);
+    circle(ctx, ex, ey, 3.2, '#39435c', 1.5);
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.rotate(a1 + a2 + 0.4);
+    ctx.beginPath();
+    ctx.moveTo(-3, -2);
+    ctx.lineTo(11, 0);
+    ctx.lineTo(9, 10);
+    ctx.lineTo(-3, 8);
+    ctx.closePath();
+    ctx.fillStyle = '#8d99ae';
+    ctx.fill();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // A bulldozer with a face and a blade at the front (right).
+  function drawBulldozer(ctx, t) {
+    box(ctx, -32, -11, 62, 13, 6, '#39435c', 2);
+    for (const x of [-24, -10, 4, 18]) circle(ctx, x, -4.5, 3.2, '#c9d3e6', 1.2);
+    box(ctx, -28, -30, 50, 20, 4, '#f08a24');
+    box(ctx, -26, -52, 24, 24, 4, '#ffb347');
+    box(ctx, -22, -48, 16, 12, 3, '#d9f1ff', 1.5);
+    eyes(ctx, -14, -42, 3.2, 2.6, 1);
+    smile(ctx, -13, -39.5, 3.2);
+    circle(ctx, -14, -54, 3, Math.floor(t / 320) % 2 ? '#ffb938' : '#c77a1a', 1.5);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(22, -20);
+    ctx.lineTo(36, -12);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    box(ctx, 33, -31, 8, 32, 3, '#8d99ae', 2);
+  }
+
+  function drawMixer(ctx, t) {
+    wheel(ctx, -9, -5, 6);
+    wheel(ctx, 11, -5, 6);
+    box(ctx, -17, -14, 36, 7, 2, '#39435c', 1.6);
+    ctx.save();
+    ctx.translate(0, -26);
+    ctx.rotate(-0.25);
+    path(ctx, -15, -14, 30, 30, 12);
+    ctx.fillStyle = '#e5484d';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const r = (t / 600) % (Math.PI * 2);
+    ctx.arc(0, 1, 9, r, r + 1.6);
+    ctx.stroke();
+    ctx.restore();
+    eyes(ctx, -2, -29, 3, 2.4, 1);
+    smile(ctx, -1.5, -26, 2.8);
+  }
+
+  function drawPortaloo(ctx) {
+    box(ctx, -11, -40, 22, 40, 3, '#4d96ff');
+    box(ctx, -8, -33, 16, 29, 2, '#7fb4ff', 1.5);
+    circle(ctx, 5, -19, 1.4, INK);
+    label(ctx, 'WC', 0, -37, 7, '#fff', 'center', 700);
+  }
+
+  function drawTowerCrane(ctx, stage, t) {
+    const mx = 680;
+    const top = 550;
+    // Mast.
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = INK;
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(mx - 7, top, 14, 686 - top);
+    ctx.beginPath();
+    for (let y = top; y < 686; y += 14) {
+      ctx.moveTo(mx - 7, y);
+      ctx.lineTo(mx + 7, y + 14);
+      ctx.moveTo(mx + 7, y);
+      ctx.lineTo(mx - 7, y + 14);
+    }
+    ctx.stroke();
+    ctx.strokeRect(mx - 7, top, 14, 686 - top);
+    // Jib, counterweight and the little roof on top.
+    box(ctx, mx - 52, top - 8, 310, 8, 2, '#ffcf3d', 2);
+    box(ctx, mx - 52, top, 22, 16, 2, '#8d99ae', 2);
+    ctx.beginPath();
+    ctx.moveTo(mx - 8, top - 8);
+    ctx.lineTo(mx, top - 20);
+    ctx.lineTo(mx + 8, top - 8);
+    ctx.closePath();
+    ctx.fillStyle = '#ffcf3d';
+    ctx.fill();
+    ctx.stroke();
+    // Cab with a face.
+    box(ctx, mx + 6, top + 2, 20, 16, 3, '#ffcf3d', 2);
+    eyes(ctx, mx + 16, top + 8, 3.2, 2.4, 1);
+    smile(ctx, mx + 16.5, top + 10.5, 2.8);
+    // The trolley slides along the jib and the load swings on its cable.
+    const tx = mx + 140 + Math.sin(t / 1900) * 55;
+    const swing = Math.sin(t / 650) * 0.12;
+    const len = 38 + Math.sin(t / 1300) * 8;
+    box(ctx, tx - 6, top - 10, 12, 5, 1.5, '#39435c', 1.4);
+    ctx.save();
+    ctx.translate(tx, top - 5);
+    ctx.rotate(swing);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, len);
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.translate(0, len);
+    circle(ctx, 0, 3, 3.2, '#8d99ae', 1.4);
+    if (stage === 4) {
+      // The finishing touch: a flag on the hook.
+      ctx.fillStyle = INK;
+      ctx.fillRect(-1, 4, 2, 26);
+      ctx.beginPath();
+      ctx.moveTo(1, 5);
+      ctx.lineTo(25, 10 + Math.sin(t / 150) * 2);
+      ctx.lineTo(1, 17);
+      ctx.closePath();
+      ctx.fillStyle = '#e5484d';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      box(ctx, -22, 6, 44, 7, 1, '#8d99ae', 1.8);
+      ctx.beginPath();
+      ctx.moveTo(-14, 6);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(14, 6);
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawSite(ctx, stage, t) {
+    const base = 680;
+    const bx = 710;
+    const bw = 200;
+    // Ground: a muddy patch that becomes a lawn once the building is finished.
+    path(ctx, 420, 548, 670, 152, 18);
+    ctx.fillStyle = stage === 4 ? '#8fdc68' : '#c9a06a';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = stage === 4 ? '#6cbf4f' : '#a67c47';
+    ctx.stroke();
+    const rand = mulberry(41);
+    for (let i = 0; i < 26; i++) {
+      const x = 440 + rand() * 630;
+      const y = 560 + rand() * 128;
+      ctx.fillStyle = stage === 4 ? 'rgba(40,140,50,.16)' : 'rgba(110,70,30,.16)';
+      ctx.beginPath();
+      ctx.ellipse(x, y, 10 + rand() * 14, 3 + rand() * 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (stage === 4) {
+      // A path to the door and some flowers.
+      path(ctx, bx + 80, base - 4, 40, 24, 6);
+      ctx.fillStyle = '#e7dec6';
+      ctx.fill();
+      for (let i = 0; i < 18; i++) circle(ctx, 720 + (i % 9) * 22 + (i < 9 ? 0 : 8), (i < 9 ? 694 : 686) + (i % 3) * 2, 2.4, ['#fff', '#ffd93d', '#ff8fab'][i % 3]);
+    }
+
+    // The sign board.
+    ctx.fillStyle = '#8a5a36';
+    ctx.fillRect(448, 626, 5, 62);
+    ctx.fillRect(508, 626, 5, 62);
+    box(ctx, 436, 586, 90, 42, 6, '#fff7e0', 2.5);
+    label(ctx, 'TOWN HALL', 481, 598, 11, INK, 'center', 700);
+    label(ctx, SITE_TEXT[stage - 1], 481, 616, stage === 2 ? 8.5 : 9.5, stage === 4 ? '#2f9e6b' : '#d94f4f', 'center', 700);
+
+    // Cones.
+    if (stage < 4) for (const x of [545, 560, 1000]) cone(ctx, x, 698);
+
+    // Stage 1: the hole being dug, and a heap of earth.
+    if (stage === 1) {
+      ctx.beginPath();
+      ctx.ellipse(800, 676, 105, 14, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#7a5a38';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(800, 679, 88, 9, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#5d422a';
+      ctx.fill();
+    }
+    if (stage <= 2) {
+      ctx.beginPath();
+      ctx.moveTo(560, 686);
+      ctx.quadraticCurveTo(595, 636, 640, 686);
+      ctx.closePath();
+      ctx.fillStyle = '#a67c47';
+      ctx.fill();
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+    }
+
+    // The building itself.
+    if (stage >= 2) box(ctx, bx - 6, base, bw + 12, 8, 2, '#b9b9b9', 2);
+    if (stage === 2) {
+      bricks(ctx, bx, base - 24, 100, 24);
+      bricks(ctx, bx + 100, base - 12, 100, 12);
+    } else if (stage >= 3) {
+      bricks(ctx, bx, base - 38, bw, 38);
+      siteWindow(ctx, bx + 35, base - 30);
+      siteWindow(ctx, bx + 165, base - 30);
+      path(ctx, bx + 88, base - 28, 24, 28, 12);
+      ctx.fillStyle = stage === 4 ? '#8a5a36' : '#d9b27c';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+    }
+    if (stage === 3) {
+      bricks(ctx, bx, base - 76, 120, 38);
+      siteWindow(ctx, bx + 35, base - 68);
+      bricks(ctx, bx + 120, base - 54, 80, 16);
+    }
+    if (stage === 4) {
+      bricks(ctx, bx, base - 76, bw, 38);
+      for (const x of [35, 100, 165]) siteWindow(ctx, bx + x, base - 68);
+      box(ctx, bx - 6, base - 80, bw + 12, 7, 2, '#e7dec6', 2);
+      // The clock tower and the roof.
+      bricks(ctx, bx + 78, base - 126, 44, 46);
+      circle(ctx, bx + 100, base - 106, 11, '#fff', 2);
+      const m = Math.floor(t / 1000);
+      ctx.beginPath();
+      ctx.moveTo(bx + 100, base - 106);
+      ctx.lineTo(bx + 100 + Math.cos(m * 0.1) * 7, base - 106 + Math.sin(m * 0.1) * 7);
+      ctx.moveTo(bx + 100, base - 106);
+      ctx.lineTo(bx + 100, base - 113);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(bx + 72, base - 126);
+      ctx.lineTo(bx + 128, base - 126);
+      ctx.lineTo(bx + 100, base - 148);
+      ctx.closePath();
+      ctx.fillStyle = '#5a4b8f';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(bx - 10, base - 80);
+      ctx.lineTo(bx + bw + 10, base - 80);
+      ctx.lineTo(bx + bw - 24, base - 106);
+      ctx.lineTo(bx + 24, base - 106);
+      ctx.closePath();
+      ctx.fillStyle = '#5a4b8f';
+      ctx.fill();
+      ctx.stroke();
+      // A ribbon across the door, waiting to be cut.
+      ctx.beginPath();
+      ctx.moveTo(bx + 70, base - 12);
+      ctx.lineTo(bx + 130, base - 12);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#e5484d';
+      ctx.stroke();
+    }
+
+    // Scaffolding round the unfinished walls.
+    if (stage === 2 || stage === 3) {
+      const top = stage === 2 ? base - 36 : base - 84;
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = INK;
+      ctx.beginPath();
+      for (const x of [bx - 8, bx + 100, bx + bw + 8]) {
+        ctx.moveTo(x, base + 4);
+        ctx.lineTo(x, top);
+      }
+      for (let y = base - 22; y > top - 4; y -= 24) {
+        ctx.moveTo(bx - 8, y);
+        ctx.lineTo(bx + bw + 8, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = '#caa24a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let y = base - 22; y > top - 4; y -= 24) {
+        ctx.moveTo(bx - 8, y + 3);
+        ctx.lineTo(bx + bw + 8, y + 3);
+      }
+      ctx.stroke();
+    }
+
+    // Machines.
+    if (stage >= 3) drawTowerCrane(ctx, stage, t);
+    ctx.save();
+    ctx.translate(965, 686);
+    ctx.scale(-1, 1);
+    drawDigger(ctx, t, stage === 4 ? 'wave' : 'dig');
+    ctx.restore();
+    if (stage >= 2) {
+      // The bulldozer shuffles to and fro, and never quite gets the heap flat.
+      ctx.save();
+      ctx.translate(590 + Math.sin(t / 1400) * 16, 686);
+      drawBulldozer(ctx, t);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(1022, 686);
+      drawMixer(ctx, t);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(1066, 688);
+    drawPortaloo(ctx);
+    ctx.restore();
+    // A stack of bricks.
+    for (const [x, y] of [[640, 686], [652, 686], [646, 680]]) box(ctx, x - 6, y - 6, 12, 6, 1, '#d9694f', 1.4);
+
+    // The workers.
+    if (stage === 1) {
+      // One worker is fast asleep on the heap of earth.
+      worker(ctx, 600, 660, '#4d96ff', 0, false);
+      const z = (t / 700) % 3;
+      for (let i = 0; i < 3; i++) {
+        const k = (z + i) % 3;
+        ctx.globalAlpha = 1 - k / 3;
+        label(ctx, 'z', 612 + k * 7, 640 - k * 9, 9 + k * 2, INK, 'center', 700);
+      }
+      ctx.globalAlpha = 1;
+    } else if (stage < 4) {
+      worker(ctx, 632, 690, '#ff9f43', Math.sin(t / 130) * 1.6, false);
+      worker(ctx, 935, 690, '#4d96ff', Math.sin(t / 170 + 1) * 1.6, false);
+      if (stage === 3) worker(ctx, 1040, 690, '#ff6b6b', Math.sin(t / 240) * 1.2, false);
+    } else {
+      for (const [x, c] of [[bx + 40, '#ff9f43'], [bx + 62, '#4d96ff'], [bx + 138, '#ff6b6b'], [bx + 160, '#c77dff'], [1000, '#6bcB77']]) {
+        worker(ctx, x, 692, c, Math.sin(t / 150 + x), true);
+      }
+      // Bunting along the front of the site, and confetti.
+      ctx.beginPath();
+      ctx.moveTo(560, 590);
+      ctx.quadraticCurveTo(740, 628, 940, 590);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      for (let i = 1; i < 14; i++) {
+        const u = i / 14;
+        const x = 560 + 380 * u;
+        const y = 590 + 38 * u * (1 - u) * 2 + 1;
+        ctx.beginPath();
+        ctx.moveTo(x - 6, y);
+        ctx.lineTo(x + 6, y);
+        ctx.lineTo(x, y + 12);
+        ctx.closePath();
+        ctx.fillStyle = ['#e5484d', '#ffd23f', '#4d96ff', '#6bcB77'][i % 4];
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      for (let i = 0; i < 40; i++) {
+        const r = mulberry(i * 31 + 5);
+        const x = 600 + r() * 380;
+        const fall = (t / 24 + r() * 160) % 150;
+        ctx.fillStyle = ['#e5484d', '#ffd23f', '#4d96ff', '#6bcB77', '#ff8fab'][i % 5];
+        ctx.fillRect(x + Math.sin(fall / 9 + i) * 6, 545 + fall, 4, 3);
+      }
+    }
+  }
+
   // ---- Renderer -------------------------------------------------------------------------
   Y.createRenderer = function createRenderer(canvas, game) {
     const ctx = canvas.getContext('2d');
@@ -1246,7 +1717,7 @@
         path(ctx, mid - 62, y - 7, Math.max(8, 124 * u.progress), 14, 7);
         ctx.fillStyle = '#5aa9ff';
         ctx.fill();
-        label(ctx, G.unloadingKind(u.track) === 'goods' ? 'Unloading…' : 'Getting off…', mid, y + 0.5, 11, INK, 'center', 700);
+        label(ctx, 'Disembarking…', mid, y + 0.5, 11, INK, 'center', 700);
       }
     }
 
@@ -1256,7 +1727,6 @@
         const track = G.byId.get(dep.track);
         const mid = track.xEnd - (track.cars.length * G.SP) / 2;
         const y = track.y - 52;
-        const freight = !hasPassengers(dep);
         path(ctx, mid - 66, y - 11, 132, 22, 11);
         ctx.fillStyle = 'rgba(255,255,255,.92)';
         ctx.fill();
@@ -1266,7 +1736,7 @@
         path(ctx, mid - 62, y - 7, 124 * dep.progress, 14, 7);
         ctx.fillStyle = dep.status === 'ready' ? '#3ccf7a' : '#ffb938';
         ctx.fill();
-        let text = freight ? 'Loading…' : 'Boarding…';
+        let text = 'Boarding…';
         if (dep.status === 'ready') {
           const m = Math.round(G.level.start + dep.at);
           text = `Ready! Leaves ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -1701,6 +2171,7 @@
       ctx.drawImage(stationLayer, 0, 0, G.W, G.H);
       windmill(time);
       stationClock();
+      drawSite(ctx, Math.max(1, Math.min(4, G.level.id)), time);
 
       const poses = G.vehiclePoses();
       ambientPeople(time, env);

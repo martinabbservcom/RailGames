@@ -306,7 +306,7 @@
       if (arrival.status === 'coming' && left <= 0) chip = 'Waiting…';
       if (arrival.status === 'arriving') chip = 'Arriving!';
       if (arrival.status === 'derailed') chip = 'Derailed!';
-      if (arrival.status === 'unloading') chip = 'Unloading…';
+      if (arrival.status === 'unloading') chip = 'Disembarking…';
       if (arrival.status === 'arrived') chip = 'Here ✓';
       card.className = `card arr status-${arrival.status}`;
       card.hidden = arrival.status === 'arrived';

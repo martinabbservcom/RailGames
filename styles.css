@@ -228,3 +228,6 @@ html.is-touch .tutorial { left: 64px; width: min(340px, calc(100% - 78px)); }
 .fast-forward { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 12px 28px; border-radius: 22px; background: var(--sun); border: 3px solid var(--ink); font-size: 26px; font-weight: 700; box-shadow: 0 5px 0 #0005; pointer-events: none; animation: ff-pulse 1s ease-in-out infinite; }
 .fast-forward[hidden] { display: none; }
 @keyframes ff-pulse { 50% { opacity: .6; } }
+
+.board-note .board-dot { background: #2f9e6b; }
+.board-note .board-dot.arrive { background: #d94f4f; }
