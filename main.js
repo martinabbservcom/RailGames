@@ -837,7 +837,7 @@
         const pending = game.endless || game.freeplay ? [] : game.departures.filter(d => d.status !== 'done' && d.status !== 'cancelled');
         const autoFinish = pending.length > 0 && pending.every(d => d.status === 'ready');
         $('fast-forward').hidden = !autoFinish;
-        let remaining = dt * (autoFinish ? Math.max(speed, 16) : speed);
+        let remaining = dt * (autoFinish ? Math.max(speed, 60) : speed);
         while (remaining > 0) {
           const step = Math.min(remaining, 0.03);
           const wasBusy = !!game.job;
