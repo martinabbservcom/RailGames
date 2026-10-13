@@ -288,7 +288,7 @@
       if (!card) continue;
       const left = Math.round(game.level.start + dep.at - game.minute);
       let chip = left > 0 ? `in ${left} min` : left === 0 ? 'now' : `${-left} min late`;
-      if (dep.status === 'boarding') chip = 'Boarding…';
+      if (dep.status === 'boarding') chip = dep.spec.some(t => Y.TYPES[t] && Y.TYPES[t].kind === 'coach') ? 'Boarding…' : 'Loading…';
       if (dep.status === 'ready') chip = 'Ready ✓';
       if (dep.status === 'done') chip = starText(dep.stars);
       if (dep.status === 'cancelled') chip = 'Missed';
@@ -306,7 +306,7 @@
       if (arrival.status === 'coming' && left <= 0) chip = 'Waiting…';
       if (arrival.status === 'arriving') chip = 'Arriving!';
       if (arrival.status === 'derailed') chip = 'Derailed!';
-      if (arrival.status === 'unloading') chip = 'Disembarking…';
+      if (arrival.status === 'unloading') chip = arrival.cars.some(t => Y.TYPES[t] && Y.TYPES[t].kind === 'coach') ? 'Disembarking…' : 'Unloading…';
       if (arrival.status === 'arrived') chip = 'Here ✓';
       card.className = `card arr status-${arrival.status}`;
       card.hidden = arrival.status === 'arrived';

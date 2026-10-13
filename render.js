@@ -1161,15 +1161,25 @@
       bricks(ctx, bx, base - 76, bw, 38);
       for (const x of [35, 100, 165]) siteWindow(ctx, bx + x, base - 68);
       box(ctx, bx - 6, base - 80, bw + 12, 7, 2, '#e7dec6', 2);
-      // The clock tower and the roof.
+      // The roof.
+      ctx.beginPath();
+      ctx.moveTo(bx - 10, base - 80);
+      ctx.lineTo(bx + bw + 10, base - 80);
+      ctx.lineTo(bx + bw - 24, base - 106);
+      ctx.lineTo(bx + 24, base - 106);
+      ctx.closePath();
+      ctx.fillStyle = '#5a4b8f';
+      ctx.fill();
+      ctx.stroke();
+      // The clock tower stands in front of the roof so the clock can be seen.
       bricks(ctx, bx + 78, base - 126, 44, 46);
-      circle(ctx, bx + 100, base - 106, 11, '#fff', 2);
+      circle(ctx, bx + 100, base - 116, 9, '#fff', 2);
       const m = Math.floor(t / 1000);
       ctx.beginPath();
-      ctx.moveTo(bx + 100, base - 106);
-      ctx.lineTo(bx + 100 + Math.cos(m * 0.1) * 7, base - 106 + Math.sin(m * 0.1) * 7);
-      ctx.moveTo(bx + 100, base - 106);
-      ctx.lineTo(bx + 100, base - 113);
+      ctx.moveTo(bx + 100, base - 116);
+      ctx.lineTo(bx + 100 + Math.cos(m * 0.1) * 6, base - 116 + Math.sin(m * 0.1) * 6);
+      ctx.moveTo(bx + 100, base - 116);
+      ctx.lineTo(bx + 100, base - 122);
       ctx.lineWidth = 1.6;
       ctx.strokeStyle = INK;
       ctx.stroke();
@@ -1181,15 +1191,6 @@
       ctx.fillStyle = '#5a4b8f';
       ctx.fill();
       ctx.lineWidth = 2.5;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(bx - 10, base - 80);
-      ctx.lineTo(bx + bw + 10, base - 80);
-      ctx.lineTo(bx + bw - 24, base - 106);
-      ctx.lineTo(bx + 24, base - 106);
-      ctx.closePath();
-      ctx.fillStyle = '#5a4b8f';
-      ctx.fill();
       ctx.stroke();
       // A ribbon across the door, waiting to be cut.
       ctx.beginPath();
@@ -1717,7 +1718,7 @@
         path(ctx, mid - 62, y - 7, Math.max(8, 124 * u.progress), 14, 7);
         ctx.fillStyle = '#5aa9ff';
         ctx.fill();
-        label(ctx, 'Disembarking…', mid, y + 0.5, 11, INK, 'center', 700);
+        label(ctx, G.unloadingKind(u.track) === 'goods' ? 'Unloading…' : 'Disembarking…', mid, y + 0.5, 11, INK, 'center', 700);
       }
     }
 
@@ -1736,7 +1737,7 @@
         path(ctx, mid - 62, y - 7, 124 * dep.progress, 14, 7);
         ctx.fillStyle = dep.status === 'ready' ? '#3ccf7a' : '#ffb938';
         ctx.fill();
-        let text = 'Boarding…';
+        let text = hasPassengers(dep) ? 'Boarding…' : 'Loading…';
         if (dep.status === 'ready') {
           const m = Math.round(G.level.start + dep.at);
           text = `Ready! Leaves ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
