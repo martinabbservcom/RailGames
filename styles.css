@@ -224,3 +224,7 @@ html.is-touch .tutorial { left: 64px; width: min(340px, calc(100% - 78px)); }
 .cards .card.next { box-shadow: 0 0 0 3px #ffd23f, 0 3px 0 #e6a56a; }
 .cards .card.status-done { border-color: #a9e3bf; background: #f1fff6; box-shadow: 0 3px 0 #a9e3bf; }
 .cards .card.status-cancelled { border-color: #f0b0b0; background: #fff3f3; box-shadow: 0 3px 0 #f0b0b0; }
+
+.fast-forward { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 12px 28px; border-radius: 22px; background: var(--sun); border: 3px solid var(--ink); font-size: 26px; font-weight: 700; box-shadow: 0 5px 0 #0005; pointer-events: none; animation: ff-pulse 1s ease-in-out infinite; }
+.fast-forward[hidden] { display: none; }
+@keyframes ff-pulse { 50% { opacity: .6; } }

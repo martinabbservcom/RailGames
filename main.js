@@ -833,7 +833,11 @@
     if (game && renderer) {
       const covered = overlayOpen();
       if (!paused && !covered && !tutorialHolds()) {
-        let remaining = dt * speed;
+        // Once every train still to leave is built and ready, there is nothing left to do, so the clock races to the end.
+        const pending = game.endless || game.freeplay ? [] : game.departures.filter(d => d.status !== 'done' && d.status !== 'cancelled');
+        const autoFinish = pending.length > 0 && pending.every(d => d.status === 'ready');
+        $('fast-forward').hidden = !autoFinish;
+        let remaining = dt * (autoFinish ? Math.max(speed, 16) : speed);
         while (remaining > 0) {
           const step = Math.min(remaining, 0.03);
           const wasBusy = !!game.job;
@@ -845,6 +849,7 @@
           }
         }
       }
+      if (paused || covered || tutorialHolds()) $('fast-forward').hidden = true;
       handleEvents();
       // Engines chuff while they move, and the rain patters.
       if (!paused && !covered && game.moving()) {
