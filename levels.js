@@ -3,6 +3,9 @@
 
   const Y = (window.Yard = window.Yard || {});
 
+  // Shown on the main menu so you can tell which version of the code is loaded. Increase it with every change.
+  Y.VERSION = '1.1';
+
   // kind: 'loco' | 'coach' | 'wagon'
   Y.TYPES = {
     steam: { name: 'Steam engine', kind: 'loco', color: '#2f9e6b', trim: '#ffd23f' },

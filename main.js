@@ -1069,6 +1069,7 @@
   Y.debug = () => ({ game, paused, speed });
 
   // Start on the menu, with a quiet yard behind it.
+  $('version').textContent = `v${Y.VERSION}`;
   game = Y.createGame(Y.LEVELS[0]);
   renderer = Y.createRenderer(canvas, game);
   buildBoard();

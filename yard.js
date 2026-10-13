@@ -649,6 +649,8 @@
       }
       const worn = cut.some(needsService);
       return tracks
+        // Only engines may enter an engine shed; coaches and wagons stay out.
+        .filter(t => !isShed(t) || cut.every(v => isLoco(v.type)))
         .filter(t => !t.locked && t.kind !== 'pip' && t.id !== fromId && !isUnloading(t.id) && t.cars.length + k <= t.cap)
         // A worn engine alone may only go to the shed; hauling a train it may only go to a siding.
         .filter(t => !worn || (cut.every(v => isLoco(v.type)) ? isShed(t) : t.kind === 'siding' || hasLeadEngine(t)))

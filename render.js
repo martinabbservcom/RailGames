@@ -1230,6 +1230,26 @@
       }
     }
 
+    // The bar over a train whose passengers (or goods) are still coming off. It can't be moved until it is full.
+    function unloadingBars() {
+      for (const u of G.unloadings) {
+        if (u.derail) continue;
+        const track = G.byId.get(u.track);
+        const mid = track.xEnd - (track.cars.length * G.SP) / 2;
+        const y = track.y - 52;
+        path(ctx, mid - 66, y - 11, 132, 22, 11);
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = INK;
+        ctx.stroke();
+        path(ctx, mid - 62, y - 7, Math.max(8, 124 * u.progress), 14, 7);
+        ctx.fillStyle = '#5aa9ff';
+        ctx.fill();
+        label(ctx, G.unloadingKind(u.track) === 'goods' ? 'Unloading…' : 'Getting off…', mid, y + 0.5, 11, INK, 'center', 700);
+      }
+    }
+
     function boardingBars(time) {
       for (const dep of G.departures) {
         if (dep.progress <= 0 || dep.status === 'done' || dep.status === 'cancelled') continue;
@@ -1795,6 +1815,7 @@
       if (!pilot.work && Math.random() < dt * 0.7) puff(pilot.x + 14, pilot.y - 52, false);
 
       boardingBars(time);
+      unloadingBars();
       arrivalHint(time);
       drawParticles();
     }
