@@ -12,7 +12,7 @@
   const STORE_KEY = 'pebblebrook-yard-stars';
   const UPGRADE_KEY = 'sibsey-upgrades';
   const TUTORIAL_KEY = 'sibsey-tutorial-done';
-  const OVERLAYS = ['menu', 'help', 'results', 'upgrades', 'stats'];
+  const OVERLAYS = ['menu', 'help', 'results', 'upgrades', 'stats', 'spare-ask'];
 
   const starsHtml = $('stars-total').innerHTML;
   let levelIndex = 0;
@@ -119,7 +119,7 @@
     for (const overlay of OVERLAYS) $(overlay).classList.add('hidden');
   }
 
-  const overlayOpen = () => ['menu', 'help', 'upgrades', 'stats'].some(id => !$(id).classList.contains('hidden'));
+  const overlayOpen = () => ['menu', 'help', 'upgrades', 'stats', 'spare-ask'].some(id => !$(id).classList.contains('hidden'));
 
   // ---- Menu -----------------------------------------------------------------------
   function buildMenu() {
@@ -695,8 +695,17 @@
         case 'weather':
           toast({ rain: 'Rain is coming in. Wet rails make derailments more likely.', fog: 'Fog is rolling in. Signals are more likely to fail.', cloudy: 'Clouds are gathering.', clear: 'The weather is clearing up.' }[event.kind]);
           break;
+        case 'dumpask':
+          Y.sound.deny();
+          $('spare-ask-text').textContent = `The train on ${game.byId.get(event.track).name} isn't a timetabled service. Send it away as empty coaching stock, or keep it here to move out again later?`;
+          show('spare-ask');
+          break;
         case 'dumped':
-          toast('A spare train has left the yard. That clears some space!', 'good');
+          toast('The empty coaching stock has left the yard. That clears some space!', 'good');
+          break;
+        case 'spareengine':
+          Y.sound.ding();
+          toast('A fresh engine has arrived in the shed, ready to work.', 'good');
           break;
         case 'servicing':
           toast('The engine is being serviced in the shed.');
@@ -924,6 +933,13 @@
       row.querySelector('.sv').textContent = value;
       return row;
     }));
+  }
+
+  for (const [id, yes] of [['spare-send', true], ['spare-keep', false]]) {
+    $(id).addEventListener('click', () => {
+      hideOverlays();
+      if (game) game.answerDump(yes);
+    });
   }
 
   let statsPausedGame = false;

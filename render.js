@@ -1856,7 +1856,7 @@
         path(ctx, mid - 72, y - 7, Math.max(8, 144 * p), 14, 7);
         ctx.fillStyle = '#9aa7bd';
         ctx.fill();
-        label(ctx, 'Spare train leaving…', mid, y + 0.5, 11, INK, 'center', 700);
+        label(ctx, 'Empty coaching stock', mid, y + 0.5, 11, INK, 'center', 700);
       }
     }
 

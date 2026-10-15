@@ -866,7 +866,8 @@
         if (activeDeparture(dep.track) !== dep) continue;
         const track = byId.get(dep.track);
         const due = level.start + dep.at;
-        const ok = !busy.has(dep.track) && formationMatches(dep, track);
+        // Empty coaching stock waiting to be sent away never boards.
+        const ok = !busy.has(dep.track) && !(G.dumpAsk && G.dumpAsk.track === dep.track) && formationMatches(dep, track);
 
         if (ok) {
           // A correct train doesn't need Pip any more: it uncouples and heads home straight away.
@@ -987,6 +988,7 @@
           undoState = null;
           startEngineRun(loco.id, freeShed().id);
         } else if (incoming) startArrival(incoming);
+        else if (endless && needSpareEngine()) startSpareEngine();
       }
       const held = G.waitingArrival();
       if (held && !held.held) {
@@ -1126,6 +1128,8 @@
     // sidings when they fill up. A train that is still being built for the next departure is left alone.
     const DUMP_MINUTES = 2;
     const dumpSince = new Map();
+    const dumpDeclined = new Map(); // road -> formation the player chose to keep
+    G.dumpAsk = null; // { track, signature } while the player is being asked
     G.dumpProgress = id => {
       const since = dumpSince.get(id);
       return since === undefined ? 0 : Math.min(1, (G.minute - since) / DUMP_MINUTES);
@@ -1148,19 +1152,79 @@
           !building && !(dep && formationMatches(dep, track));
         if (!fit) {
           dumpSince.delete(track.id);
+          dumpDeclined.delete(track.id);
           continue;
         }
+        // The player said "keep it" for this exact formation: leave it alone until it changes.
+        const signature = track.cars.map(v => v.id).join(',');
+        if (dumpDeclined.get(track.id) === signature) {
+          dumpSince.delete(track.id);
+          continue;
+        }
+        dumpDeclined.delete(track.id);
         if (!dumpSince.has(track.id)) dumpSince.set(track.id, G.minute);
         if (!G.job && pilot.track === track.id) startToShed();
-        if (G.minute - dumpSince.get(track.id) >= DUMP_MINUTES) {
-          dumpSince.delete(track.id);
-          const gone = track.cars.splice(0);
-          for (const v of gone) v.facing = 1;
-          undoState = null;
-          G.leaving.push({ track: track.id, cars: gone, base: slotU(track, 0, gone.length) - SP, v: 0, dep: null, slow: track.signalFailedUntil > G.minute });
-          emit('dumped', { track: track.id });
+        if (G.dumpAsk === null && G.minute - dumpSince.get(track.id) >= DUMP_MINUTES) {
+          // Ask first: it is easy to build a spare train by accident, or on the wrong platform.
+          G.dumpAsk = { track: track.id, signature };
+          emit('dumpask', { track: track.id, cars: track.cars.length });
         }
       }
+    }
+
+    // The player's answer to "send this train off as empty coaching stock?"
+    G.answerDump = yes => {
+      const ask = G.dumpAsk;
+      if (!ask) return;
+      G.dumpAsk = null;
+      const track = byId.get(ask.track);
+      dumpSince.delete(ask.track);
+      if (!yes || track.cars.map(v => v.id).join(',') !== ask.signature) {
+        dumpDeclined.set(ask.track, ask.signature);
+        return;
+      }
+      const gone = track.cars.splice(0);
+      for (const v of gone) v.facing = 1;
+      undoState = null;
+      G.leaving.push({ track: track.id, cars: gone, base: slotU(track, 0, gone.length) - SP, v: 0, dep: null, slow: track.signalFailedUntil > G.minute });
+      emit('dumped', { track: track.id });
+    };
+
+    // ---- Spare engines (Endless Rush) ---------------------------------------------------
+    // With breakdowns and servicing, the yard can run out of engines. If no serviced engine is waiting in a shed,
+    // a fresh one runs in along the bottom line (under Pip's siding) and straight into the shed.
+    function needSpareEngine() {
+      if (!freeShed()) return false;
+      return !sheds.some(t => t.cars.some(v => isLoco(v.type) && !needsService(v)));
+    }
+
+    function startSpareEngine() {
+      const shed = freeShed();
+      const engine = makeVehicle(pick(['diesel', 'steam']));
+      engine.service = 0;
+      engine.facing = 1;
+      // Pip must not be in the shed road the engine is running into.
+      if (pilot.track === shed.id) {
+        const away = parkingRoad(shed.id);
+        if (away) startPark(away);
+        else startHome();
+        return;
+      }
+      const uStart = -(L0.x + 80); // off the left-hand edge, on the lead at the bottom
+      const uFinal = shed.uEnd - SP / 2 - (shed.cars.length + 1) * SP;
+      undoState = null;
+      startJob({
+        kind: 'spare',
+        from: null,
+        to: shed.id,
+        k: 1,
+        hidePilot: true,
+        cut: [engine],
+        pilotU: uStart,
+        track: shed.id,
+        dir: 1,
+        steps: [{ go: shed.id, to: uFinal, onEnd: job => { attach(job); engine.facing = -1; emit('spareengine', { vehicle: engine, track: shed.id }); } }]
+      });
     }
 
     function extendSchedule() {
@@ -1233,7 +1297,8 @@
       const minutes = Math.round(rnd(6, 9));
       const horizon = G.minute + minutes + 3;
       const quiet = t =>
-        ['platform', 'goods', 'siding'].includes(t.kind) && !t.locked && t.cars.length === 0 &&
+        // Endless Rush never closes a platform: it would make the game impossible.
+        (endless ? ['goods', 'siding'] : ['platform', 'goods', 'siding']).includes(t.kind) && !t.locked && t.cars.length === 0 &&
         !isUnloading(t.id) && pilot.track !== t.id &&
         !(G.job && (G.job.from === t.id || G.job.to === t.id || G.job.track === t.id)) &&
         !G.leaving.some(l => l.track === t.id) &&

@@ -152,7 +152,7 @@
     {
       id: 5,
       title: 'Endless Rush',
-      blurb: 'Trains keep coming and it only gets busier, with track works and derailments. How long can you last? The day ends when you miss 3 trains. Short of space? Build a spare train (engine at the front, guard or brake van at the back) on a platform or the goods road and it leaves after 2 minutes.',
+      blurb: 'Trains keep coming and it only gets busier, with track works and derailments. How long can you last? The day ends when you miss 3 trains. Short of space? Build a train of empty coaching stock (engine at the front, guard or brake van at the back) on a platform or the goods road and, after 2 minutes, you can send it away.',
       endless: true,
       events: true,
       pullLimit: 6,
