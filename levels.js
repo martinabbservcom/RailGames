@@ -3,8 +3,8 @@
 
   const Y = (window.Yard = window.Yard || {});
 
-  // Shown on the main menu so you can tell which version of the code is loaded. Increase it with every change.
-  Y.VERSION = '1.9';
+  // Shown on the main menu so you can tell when the code was last built. The git pre-commit hook rewrites this on every commit.
+  Y.BUILD = '2026-10-15T19:37:21Z';
 
   // kind: 'loco' | 'coach' | 'wagon'
   Y.TYPES = {

@@ -1100,7 +1100,10 @@
   Y.debug = () => ({ game, paused, speed });
 
   // Start on the menu, with a quiet yard behind it.
-  $('version').textContent = `v${Y.VERSION}`;
+  {
+    const built = new Date(Y.BUILD);
+    $('version').textContent = isNaN(built) ? 'Build unknown' : `Built ${built.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} ${built.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+  }
   game = Y.createGame(Y.LEVELS[0]);
   renderer = Y.createRenderer(canvas, game);
   buildBoard();
