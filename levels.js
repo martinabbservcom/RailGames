@@ -4,7 +4,7 @@
   const Y = (window.Yard = window.Yard || {});
 
   // Shown on the main menu so you can tell when the code was last built. The git pre-commit hook rewrites this on every commit.
-  Y.BUILD = '2026-10-16T10:59:01Z';
+  Y.BUILD = '2026-10-16T11:29:47Z';
 
   // kind: 'loco' | 'coach' | 'wagon'
   Y.TYPES = {
@@ -24,11 +24,11 @@
   // Upgrades bought with the stars earned on the numbered days (see the Upgrades screen).
   Y.UPGRADES = [
     { id: 'pip', icon: '\u26A1', name: 'Turbo Pip', cost: 4, text: 'Pip shunts about 50% faster.' },
-    { id: 'service', icon: '\U0001F527', name: 'Quick service', cost: 6, text: 'Engines need 3 minutes in the shed instead of 5.' },
-    { id: 'unload', icon: '\U0001F6AA', name: 'Wide doors', cost: 6, text: 'Passengers and goods unload in about half the time.' },
-    { id: 'grace', icon: '\U0001F60A', name: 'Patient passengers', cost: 8, text: 'Trains wait 9 minutes before they are cancelled, not 6.' },
-    { id: 'crew', icon: '\U0001F3D7\uFE0F', name: 'Rapid recovery', cost: 8, text: 'The recovery crane works nearly twice as fast.' },
-    { id: 'safe', icon: '\U0001F6E0\uFE0F', name: 'Track maintenance', cost: 10, text: 'Derailments and engine breakdowns are half as likely.' }
+    { id: 'service', icon: '\u{1F527}', name: 'Quick service', cost: 6, text: 'Engines need 3 minutes in the shed instead of 5.' },
+    { id: 'unload', icon: '\u{1F6AA}', name: 'Wide doors', cost: 6, text: 'Passengers and goods unload in about half the time.' },
+    { id: 'grace', icon: '\u{1F60A}', name: 'Patient passengers', cost: 8, text: 'Trains wait 9 minutes before they are cancelled, not 6.' },
+    { id: 'crew', icon: '\u{1F3D7}\uFE0F', name: 'Rapid recovery', cost: 8, text: 'The recovery crane works nearly twice as fast.' },
+    { id: 'safe', icon: '\u{1F6E0}\uFE0F', name: 'Track maintenance', cost: 10, text: 'Derailments and engine breakdowns are half as likely.' }
   ];
 
   // A departure's `spec` lists the train from the FRONT to the back, so it starts
