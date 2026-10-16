@@ -1297,8 +1297,8 @@
       const minutes = Math.round(rnd(6, 9));
       const horizon = G.minute + minutes + 3;
       const quiet = t =>
-        // Endless Rush never closes a platform: it would make the game impossible.
-        (endless ? ['goods', 'siding'] : ['platform', 'goods', 'siding']).includes(t.kind) && !t.locked && t.cars.length === 0 &&
+        // Endless Rush never closes any track: it would make the game impossible.
+        (endless ? [] : ['platform', 'goods', 'siding']).includes(t.kind) && !t.locked && t.cars.length === 0 &&
         !isUnloading(t.id) && pilot.track !== t.id &&
         !(G.job && (G.job.from === t.id || G.job.to === t.id || G.job.track === t.id)) &&
         !G.leaving.some(l => l.track === t.id) &&
