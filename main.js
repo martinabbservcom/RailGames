@@ -831,7 +831,7 @@
     else if (paused) text = 'Paused. Press the play button to carry on.';
     else if (hintShown && hintShown.until > performance.now()) text = `💡 ${hintShown.text}`;
     else if (game.busy()) text = 'Pip is working…';
-    else if (game.level.id > 5) text = ''; // after level 5 the how-to-play hints are no longer needed
+    else if (game.level.id > 3) text = ''; // after level 3 the how-to-play hints are no longer needed
     else if (selected) {
       const n = selected.idx + 1;
       text = `Picked up ${n} ${n === 1 ? 'vehicle' : 'vehicles'}. Now click a green track to put ${n === 1 ? 'it' : 'them'} there.`;

@@ -4,7 +4,7 @@
   const Y = (window.Yard = window.Yard || {});
 
   // Shown on the main menu so you can tell when the code was last built. The git pre-commit hook rewrites this on every commit.
-  Y.BUILD = '2026-10-16T11:29:47Z';
+  Y.BUILD = '2026-10-16T11:48:15Z';
 
   // kind: 'loco' | 'coach' | 'wagon'
   Y.TYPES = {
